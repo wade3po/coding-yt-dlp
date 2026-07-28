@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>yt-dlp 下载器</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f6fa;
+  --white: #ffffff;
+  --s2: #f0f1f5;
+  --border: #e4e6ee;
+  --accent: #4f46e5;
+  --accent-l: #6366f1;
+  --accent-bg: #eef2ff;
+  --green: #059669;
+  --green-bg: #d1fae5;
+  --red: #dc2626;
+  --red-bg: #fee2e2;
+  --yellow: #d97706;
+  --text: #111827;
+  --text2: #6b7280;
+  --text3: #374151;
+  --r: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+body {
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.shell { display: flex; height: 100vh; overflow: hidden; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 210px; flex-shrink: 0;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 0;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 20px 18px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0; color: white;
+}
+.brand-name { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+.brand-ver { font-size: 11px; color: var(--text2); margin-top: 1px; }
+
+.nav-group { padding: 10px 10px 0; }
+.nav-label { font-size: 10px; font-weight: 600; color: var(--text2); letter-spacing: .6px; text-transform: uppercase; padding: 6px 8px 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  color: var(--text2); font-size: 13px; font-weight: 500;
+  transition: all .14s; user-select: none;
+}
+.nav-item:hover { background: var(--s2); color: var(--text); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+.sidebar-footer {
+  margin-top: auto; padding: 14px 18px;
+  border-top: 1px solid var(--border);
+}
+.ck-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); }
+.ck-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+.ck-dot.ok { background: var(--green); }
+
+/* ── Main ── */
+.main { flex: 1; overflow-y: auto; background: var(--bg); }
+.page { display: none; padding: 28px 32px; width: 100%; }
+.page.active { display: block; }
+
+.page-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--text); }
+
+/* ── Card ── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); margin-bottom: 14px; }
+
+/* ── URL bar ── */
+.url-row { display: flex; gap: 8px; }
+.url-input {
+  flex: 1; height: 42px; padding: 0 14px;
+  background: var(--s2); border: 1.5px solid var(--border);
+  border-radius: var(--r); color: var(--text); font-size: 14px;
+  outline: none; transition: border-color .14s, background .14s;
+}
+.url-input:focus { border-color: var(--accent); background: var(--white); }
+.url-input::placeholder { color: #9ca3af; }
+
+/* ── Buttons ── */
+.btn {
+  height: 42px; padding: 0 18px; border-radius: var(--r); border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all .14s; white-space: nowrap; flex-shrink: 0;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-l); }
+.btn-sm { height: 34px; padding: 0 14px; font-size: 12px; }
+.btn-outline {
+  background: white; color: var(--text3);
+  border: 1.5px solid var(--border); height: 34px; padding: 0 13px;
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.btn-outline.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+.btn:disabled { opacity: .45; pointer-events: none; }
+
+/* ── Video preview ── */
+.video-card {
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.video-thumb {
+  width: 140px; height: 79px; border-radius: 7px;
+  object-fit: cover; flex-shrink: 0;
+  background: var(--s2); border: 1px solid var(--border);
+}
+.v-title { font-size: 14px; font-weight: 600; line-height: 1.45; margin-bottom: 6px; }
+.v-meta { font-size: 12px; color: var(--text2); }
+
+/* ── Chips ── */
+.chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.chip {
+  height: 30px; padding: 0 12px; border-radius: 20px;
+  background: var(--s2); border: 1.5px solid var(--border);
+  color: var(--text2); font-size: 12px; font-weight: 600;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  transition: all .14s;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+/* ── Format table ── */
+.fmt-wrap {
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  overflow: hidden; margin-top: 14px;
+}
+.fmt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fmt-table th {
+  padding: 9px 12px; text-align: left;
+  color: var(--text2); font-weight: 600; font-size: 11px;
+  background: var(--s2); border-bottom: 1px solid var(--border);
+}
+.fmt-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.fmt-table tr:last-child td { border-bottom: none; }
+.fmt-table tbody tr { cursor: pointer; }
+.fmt-table tbody tr:hover td { background: #f9fafb; }
+.fmt-table tbody tr.sel td { background: var(--accent-bg); }
+.badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.bv { background: #ede9fe; color: #7c3aed; }
+.ba { background: #fef3c7; color: #b45309; }
+.bav { background: #d1fae5; color: #065f46; }
+code { font-family: 'Cascadia Code','Consolas',monospace; font-size: 11px; color: var(--accent); }
+
+/* ── Options grid ── */
+.opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.opt-item label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; }
+.opt-item select, .opt-item input[type=text] {
+  width: 100%; height: 36px; padding: 0 11px;
+  background: var(--s2); border: 1.5px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px; outline: none;
+  transition: border-color .14s;
+}
+.opt-item select:focus, .opt-item input[type=text]:focus { border-color: var(--accent); background: white; }
+
+/* ── Action row ── */
+.action-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* ── Progress ── */
+.prog-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+.prog-pct { font-size: 13px; font-weight: 700; color: var(--accent); }
+.prog-meta { font-size: 12px; color: var(--text2); display: flex; gap: 12px; }
+.prog-track { height: 6px; background: var(--s2); border-radius: 3px; overflow: hidden; margin-bottom: 14px; border: 1px solid var(--border); }
+.prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8); border-radius: 3px; transition: width .3s; }
+.log {
+  background: #1e1e2e; color: #cdd6f4;
+  border-radius: 8px; padding: 12px 14px;
+  font-family: 'Cascadia Code','Consolas',monospace;
+  font-size: 11.5px; line-height: 1.75;
+  height: 190px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-all;
+}
+.log::-webkit-scrollbar-thumb { background: #45475a; }
+
+/* ── Error ── */
+.err-box {
+  padding: 12px 14px; border-radius: var(--r);
+  background: var(--red-bg); border: 1px solid #fca5a5;
+  color: var(--red); font-size: 13px; line-height: 1.7;
+  white-space: pre-wrap; word-break: break-all; margin-bottom: 14px;
+}
+
+/* ── Tasks ── */
+.task-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; background: var(--white);
+  border: 1px solid var(--border); border-radius: var(--r);
+  box-shadow: var(--shadow); margin-bottom: 8px;
+}
+.t-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-run { background: var(--accent); animation: pulse .9s infinite; }
+.dot-done { background: var(--green); }
+.dot-err { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+.t-body { flex: 1; min-width: 0; }
+.t-url { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+/* ── Files ── */
+.file-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; background: var(--white);
+  border: 1px solid var(--border); border-radius: var(--r);
+  box-shadow: var(--shadow); margin-bottom: 7px;
+}
+.f-icon { font-size: 18px; flex-shrink: 0; }
+.f-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.f-size { font-size: 11px; color: var(--text2); flex-shrink: 0; margin: 0 10px; }
+
+/* ── Settings ── */
+.setting-section { margin-bottom: 8px; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+.pill-ok { background: var(--green-bg); color: var(--green); }
+.pill-err { background: var(--red-bg); color: var(--red); }
+.info-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+.info-grid dt { color: var(--text2); white-space: nowrap; }
+.info-grid dd { color: var(--text); }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 22px; right: 22px;
+  padding: 10px 16px; border-radius: var(--r);
+  font-size: 13px; font-weight: 500; background: var(--white);
+  border: 1px solid var(--border); box-shadow: var(--shadow-md);
+  opacity: 0; pointer-events: none; transform: translateY(6px);
+  transition: all .18s; z-index: 999;
+}
+.toast.show { opacity: 1; pointer-events: auto; transform: none; }
+.toast.ok { border-color: #6ee7b7; color: var(--green); }
+.toast.err { border-color: #fca5a5; color: var(--red); }
+
+.empty { text-align: center; padding: 48px; color: var(--text2); font-size: 13px; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⬇</div>
+      <div>
+        <div class="brand-name">yt-dlp</div>
+        <div class="brand-ver">可视化下载器</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">菜单</div>
+      <div class="nav-item active" onclick="nav('download',this)">
+        <span class="nav-icon">⬇</span> 下载
+      </div>
+      <div class="nav-item" onclick="nav('tasks',this)">
+        <span class="nav-icon">◎</span> 任务
+      </div>
+      <div class="nav-item" onclick="nav('files',this)">
+        <span class="nav-icon">◫</span> 文件
+      </div>
+      <div class="nav-item" onclick="nav('settings',this)">
+        <span class="nav-icon">⚙</span> 设置
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="ck-status">
+        <div class="ck-dot" id="sb-dot"></div>
+        <span id="sb-label">检测 Cookies…</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+
+    <!-- ── Download ── -->
+    <div class="page active" id="page-download">
+      <div class="page-title">下载视频</div>
+
+      <div class="card">
+        <div class="card-title">视频链接</div>
+        <div class="url-row">
+          <input class="url-input" id="url-input" type="text"
+            placeholder="粘贴链接，支持 YouTube、B 站、Twitter 等 1000+ 网站…" />
+          <button class="btn btn-primary" id="parse-btn" onclick="fetchInfo()">解析</button>
+        </div>
+      </div>
+
+      <div id="err-box" class="err-box" style="display:none"></div>
+
+      <div id="video-card" class="card" style="display:none">
+        <div class="video-card">
+          <img class="video-thumb" id="v-thumb" src="" alt="" onerror="this.style.display='none'" />
+          <div>
+            <div class="v-title" id="v-title"></div>
+            <div class="v-meta" id="v-meta"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="fmt-card" class="card" style="display:none">
+        <div class="card-title">格式选择</div>
+        <div class="chips">
+          <div class="chip on" onclick="pickChip(this,'bestvideo+bestaudio/best')">🏆 最佳质量</div>
+          <div class="chip" onclick="pickChip(this,'bestvideo[height<=1080]+bestaudio/best[height<=1080]')">📺 1080p</div>
+          <div class="chip" onclick="pickChip(this,'bestvideo[height<=720]+bestaudio/best[height<=720]')">📱 720p</div>
+          <div class="chip" onclick="pickChip(this,'bestaudio/best')">🎵 仅音频</div>
+          <div class="chip" onclick="pickChip(this,'worstvideo+worstaudio/worst')">💾 最小</div>
+          <div class="chip" id="chip-custom" onclick="toggleFmt(this)">🎛 自定义</div>
+        </div>
+        <div id="fmt-wrap" class="fmt-wrap" style="display:none">
+          <table class="fmt-table">
+            <thead><tr>
+              <th></th><th>ID</th><th>格式</th><th>分辨率</th>
+              <th>FPS</th><th>类型</th><th>码率</th><th>大小</th>
+            </tr></thead>
+            <tbody id="fmt-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="opt-card" class="card" style="display:none">
+        <div class="card-title">下载选项</div>
+        <div class="opt-grid">
+          <div class="opt-item">
+            <label>文件名模板</label>
+            <input type="text" id="out-tpl" value="%(title)s.%(ext)s" />
+          </div>
+          <div class="opt-item">
+            <label>封装格式</label>
+            <select id="merge-fmt">
+              <option value="">自动</option>
+              <option value="mp4">mp4</option>
+              <option value="mkv">mkv</option>
+              <option value="webm">webm</option>
+              <option value="mp3">mp3（音频）</option>
+              <option value="m4a">m4a（音频）</option>
+            </select>
+          </div>
+          <div class="opt-item">
+            <label>字幕</label>
+            <select id="sub-opt">
+              <option value="">不下载</option>
+              <option value="--write-sub">下载字幕文件</option>
+              <option value="--write-auto-sub">下载自动字幕</option>
+              <option value="--embed-subs">内嵌字幕</option>
+            </select>
+          </div>
+          <div class="opt-item">
+            <label>限速（如 1M、500K）</label>
+            <input type="text" id="rate-limit" placeholder="不限速" />
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-outline btn-sm" onclick="previewCmd()">预览命令</button>
+          <button class="btn btn-primary btn-sm" id="dl-btn" onclick="startDownload()">开始下载</button>
+        </div>
+        <div id="cmd-box" class="log" style="display:none;height:50px;margin-top:12px;font-size:12px"></div>
+      </div>
+
+      <div id="prog-card" class="card" style="display:none">
+        <div class="card-title">下载进度</div>
+        <div class="prog-head">
+          <span class="prog-pct" id="prog-pct">0%</span>
+          <div class="prog-meta">
+            <span id="prog-speed"></span>
+            <span id="prog-eta"></span>
+          </div>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+        <div class="log" id="prog-log"></div>
+      </div>
+    </div>
+
+    <!-- ── Tasks ── -->
+    <div class="page" id="page-tasks">
+      <div class="page-title">下载任务</div>
+      <div id="tasks-list"><div class="empty">暂无任务记录</div></div>
+    </div>
+
+    <!-- ── Files ── -->
+    <div class="page" id="page-files">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div class="page-title" style="margin:0">已下载文件</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="openFolder()">打开文件夹</button>
+          <button class="btn btn-outline btn-sm" onclick="loadFiles()">刷新</button>
+        </div>
+      </div>
+      <div id="files-list"><div class="empty">downloads 目录暂无文件</div></div>
+    </div>
+
+    <!-- ── Settings ── -->
+    <div class="page" id="page-settings">
+      <div class="page-title">设置</div>
+
+      <div class="card setting-section">
+        <div class="card-title">YouTube Cookies 状态</div>
+        <div style="margin-bottom:12px">
+          <div class="status-pill pill-err" id="cookie-pill">检测中…</div>
+        </div>
+        <p style="font-size:12px;color:var(--text2);line-height:1.75;margin-bottom:14px">
+          YouTube 需要登录状态才能解析和下载视频。Cookies 会定期轮换，失效后重新导出即可。
+        </p>
+
+        <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">方式一：插件导出（推荐）</div>
+        <p style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:12px">
+          1. 安装 <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" style="color:var(--accent)">Get cookies.txt LOCALLY</a>（Chrome/Edge）<br>
+          2. 打开 youtube.com 并登录账号<br>
+          3. 点插件图标 → Export → 保存文件<br>
+          4. 点下方按钮上传
+        </p>
+        <input type="file" id="ck-file" accept=".txt" style="display:none" onchange="uploadCookies(this)" />
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('ck-file').click()">上传 cookies.txt</button>
+
+        <hr class="divider" />
+
+        <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">方式二：从浏览器直接导出</div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+          ⚠️ 操作时需完全关闭浏览器，否则数据库被占用会失败。
+        </p>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="cookiesFromBrowser('chrome')">Chrome</button>
+          <button class="btn btn-outline btn-sm" onclick="cookiesFromBrowser('edge')">Edge</button>
+          <button class="btn btn-outline btn-sm" onclick="cookiesFromBrowser('firefox')">Firefox</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">运行环境</div>
+        <dl class="info-grid">
+          <dt>JS 运行时</dt><dd><code>Node.js</code></dd>
+          <dt>yt-dlp</dt><dd><code>./yt-dlp.exe</code></dd>
+          <dt>ffmpeg</dt><dd><code>./ffmpeg.exe</code></dd>
+          <dt>下载目录</dt><dd><code>./downloads/</code></dd>
+        </dl>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let curUrl = '', selFmt = 'bestvideo+bestaudio/best';
+let curTaskId = null, pollTimer = null, allTasks = {};
+
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  el.classList.add('active');
+  if (page === 'tasks') renderTasks();
+  if (page === 'files') loadFiles();
+  if (page === 'settings') loadCookieStatus();
+}
+
+function toast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast show ${type}`;
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Cookie status
+async function loadCookieStatus() {
+  try {
+    const d = await api('GET', '/api/cookies-status');
+    const pill = document.getElementById('cookie-pill');
+    const dot = document.getElementById('sb-dot');
+    const lbl = document.getElementById('sb-label');
+    if (d.exists) {
+      pill.className = 'status-pill pill-ok'; pill.textContent = '✓ Cookies 已配置';
+      dot.className = 'ck-dot ok'; lbl.textContent = 'Cookies 有效';
+    } else {
+      pill.className = 'status-pill pill-err'; pill.textContent = '✗ 未配置 Cookies';
+      dot.className = 'ck-dot'; lbl.textContent = 'Cookies 未配置';
+    }
+  } catch {}
+}
+loadCookieStatus();
+
+// Parse
+async function fetchInfo() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) return toast('请输入 URL', 'err');
+  curUrl = url;
+  hide('err-box'); hide('video-card'); hide('fmt-card'); hide('opt-card'); hide('prog-card');
+  const btn = document.getElementById('parse-btn');
+  btn.disabled = true; btn.textContent = '解析中…';
+  try {
+    const d = await api('POST', '/api/formats', { url });
+    if (d.error) { showErr(d.error); return; }
+    // video info
+    document.getElementById('v-thumb').src = d.thumbnail || '';
+    document.getElementById('v-title').textContent = d.title || '未知标题';
+    document.getElementById('v-meta').textContent = [d.uploader, d.duration ? fmtDur(d.duration) : ''].filter(Boolean).join('  ·  ');
+    show('video-card');
+    // formats
+    renderFmts(d.formats || []);
+    show('fmt-card'); show('opt-card');
+  } catch(e) {
+    showErr('无法连接到后端，请确认 app.py 正在运行\n' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '解析';
+  }
+}
+
+function renderFmts(fmts) {
+  const tb = document.getElementById('fmt-tbody');
+  if (!fmts.length) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:18px;color:#9ca3af">暂无格式数据</td></tr>'; return; }
+  tb.innerHTML = fmts.map(f => {
+    const isV = f.vcodec && f.vcodec !== 'none', isA = f.acodec && f.acodec !== 'none';
+    const badge = isV && isA ? '<span class="badge bav">AV</span>' : isV ? '<span class="badge bv">V</span>' : '<span class="badge ba">A</span>';
+    return `<tr onclick="selFmtRow('${f.format_id}',this)">
+      <td><input type="radio" name="fmt" value="${f.format_id}"></td>
+      <td><code>${f.format_id}</code></td>
+      <td>${f.ext||'—'}</td>
+      <td>${f.resolution||f.format_note||'—'}</td>
+      <td>${f.fps?f.fps+'fps':'—'}</td>
+      <td>${badge}</td>
+      <td>${f.tbr?Math.round(f.tbr)+'k':'—'}</td>
+      <td>${f.filesize?fmtSize(f.filesize):'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function pickChip(el, fmt) {
+  selFmt = fmt;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  hide('fmt-wrap');
+  document.querySelectorAll('#fmt-tbody tr').forEach(r => r.classList.remove('sel'));
+}
+
+function toggleFmt(el) {
+  const w = document.getElementById('fmt-wrap');
+  const open = w.style.display !== 'none';
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  if (open) { hide('fmt-wrap'); }
+  else { el.classList.add('on'); show('fmt-wrap'); }
+}
+
+function selFmtRow(id, row) {
+  selFmt = id;
+  document.querySelectorAll('#fmt-tbody tr').forEach(r => r.classList.remove('sel'));
+  row.classList.add('sel'); row.querySelector('input[type=radio]').checked = true;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  document.getElementById('chip-custom').classList.add('on');
+}
+
+function buildArgs() {
+  const args = [];
+  const merge = document.getElementById('merge-fmt').value;
+  if (merge) {
+    if (['mp3','m4a','ogg','flac'].includes(merge)) args.push('--extract-audio','--audio-format',merge);
+    else args.push('--merge-output-format', merge);
+  }
+  const sub = document.getElementById('sub-opt').value;
+  if (sub) args.push(sub);
+  const rate = document.getElementById('rate-limit').value.trim();
+  if (rate) args.push('-r', rate);
+  return args;
+}
+
+function previewCmd() {
+  if (!curUrl) return toast('请先解析 URL', 'err');
+  const cmd = ['yt-dlp','-f',`"${selFmt}"`,'-o',`"downloads/${document.getElementById('out-tpl').value}"`,...buildArgs(),`"${curUrl}"`].join(' ');
+  const box = document.getElementById('cmd-box');
+  box.textContent = cmd; show('cmd-box');
+}
+
+async function startDownload() {
+  if (!curUrl) return toast('请先解析 URL', 'err');
+  const btn = document.getElementById('dl-btn');
+  btn.disabled = true;
+  document.getElementById('prog-fill').style.width = '0%';
+  document.getElementById('prog-pct').textContent = '0%';
+  document.getElementById('prog-speed').textContent = '';
+  document.getElementById('prog-eta').textContent = '';
+  document.getElementById('prog-log').textContent = '';
+  show('prog-card');
+  document.getElementById('prog-card').scrollIntoView({ behavior: 'smooth' });
+  try {
+    const d = await api('POST', '/api/download', {
+      url: curUrl, format_id: selFmt,
+      output: document.getElementById('out-tpl').value,
+      extra_args: buildArgs()
+    });
+    if (d.error) { toast(d.error, 'err'); btn.disabled = false; return; }
+    curTaskId = d.task_id;
+    allTasks[d.task_id] = { url: curUrl, status: 'running' };
+    pollProgress(d.task_id);
+  } catch(e) { toast('启动失败: ' + e.message, 'err'); btn.disabled = false; }
+}
+
+function pollProgress(id) {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const d = await api('GET', `/api/task/${id}`);
+      const pct = d.progress || 0;
+      document.getElementById('prog-fill').style.width = pct + '%';
+      document.getElementById('prog-pct').textContent = Math.round(pct) + '%';
+      document.getElementById('prog-speed').textContent = d.speed ? '⚡ ' + d.speed : '';
+      document.getElementById('prog-eta').textContent = d.eta ? '⏱ ' + d.eta : '';
+      const log = document.getElementById('prog-log');
+      log.textContent = (d.output || []).join('\n'); log.scrollTop = log.scrollHeight;
+      allTasks[id] = { url: curUrl, status: d.status, progress: pct };
+      if (d.status === 'done' || d.status === 'error') {
+        clearInterval(pollTimer);
+        document.getElementById('dl-btn').disabled = false;
+        if (d.status === 'done') {
+          toast('✓ 下载完成');
+          document.getElementById('prog-fill').style.width = '100%';
+          document.getElementById('prog-pct').textContent = '100%';
+        } else { toast('下载失败，请查看日志', 'err'); }
+      }
+    } catch {}
+  }, 800);
+}
+
+function renderTasks() {
+  const list = document.getElementById('tasks-list');
+  const entries = Object.entries(allTasks);
+  if (!entries.length) { list.innerHTML = '<div class="empty">暂无任务</div>'; return; }
+  list.innerHTML = entries.slice().reverse().map(([id, t]) => {
+    const cls = { running:'dot-run', done:'dot-done', error:'dot-err' }[t.status] || 'dot-err';
+    const label = { running:'下载中', done:'已完成', error:'失败' }[t.status] || t.status;
+    return `<div class="task-card">
+      <div class="t-dot ${cls}"></div>
+      <div class="t-body">
+        <div class="t-url">${esc(t.url||id)}</div>
+        <div class="t-sub">${label}${t.progress?' · '+Math.round(t.progress)+'%':''} · ${id.slice(0,8)}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="height:30px;padding:0 10px" onclick="viewTask('${id}')">查看</button>
+    </div>`;
+  }).join('');
+}
+
+function viewTask(id) {
+  curTaskId = id;
+  document.querySelectorAll('.nav-item')[0].click();
+  show('prog-card'); pollProgress(id);
+}
+
+async function openFolder() {
+  await api('POST', '/api/open-folder');
+}
+
+async function loadFiles() {
+  const list = document.getElementById('files-list');
+  list.innerHTML = '<div class="empty">加载中…</div>';
+  try {
+    const d = await api('GET', '/api/downloads');
+    const files = d.files || [];
+    if (!files.length) { list.innerHTML = '<div class="empty">downloads 目录暂无文件</div>'; return; }
+    list.innerHTML = files.map(f => `
+      <div class="file-row">
+        <span class="f-icon">${fileIcon(f.name)}</span>
+        <span class="f-name" title="${esc(f.name)}">${esc(f.name)}</span>
+        <span class="f-size">${fmtSize(f.size)}</span>
+      </div>`).join('');
+  } catch { list.innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function uploadCookies(input) {
+  const file = input.files[0]; if (!file) return;
+  const fd = new FormData(); fd.append('file', file);
+  try {
+    const r = await fetch('/api/upload-cookies', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.ok) { toast('✓ ' + d.msg); loadCookieStatus(); }
+    else toast('✗ ' + d.msg, 'err');
+  } catch(e) { toast('上传失败', 'err'); }
+}
+
+async function cookiesFromBrowser(browser) {
+  toast(`正在从 ${browser} 导出…`);
+  const d = await api('POST', '/api/cookies-from-browser', { browser });
+  if (d.ok) { toast('✓ ' + d.msg); loadCookieStatus(); }
+  else toast('✗ ' + d.msg, 'err');
+}
+
+function showErr(msg) {
+  let hint = '';
+  if (msg.includes('Sign in') || msg.includes('bot')) hint = '\n\n💡 请前往「设置」配置 Cookies';
+  else if (msg.includes('Unsupported URL') || msg.includes('Unable to extract')) hint = '\n\n💡 链接可能不受支持';
+  const box = document.getElementById('err-box');
+  box.textContent = msg + hint; show('err-box');
+  toast('解析失败', 'err');
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  return (await fetch(path, opts)).json();
+}
+function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
+function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtSize(b) {
+  if (!b) return '—';
+  if (b < 1048576) return (b/1024).toFixed(1)+' KB';
+  if (b < 1073741824) return (b/1048576).toFixed(1)+' MB';
+  return (b/1073741824).toFixed(2)+' GB';
+}
+function fmtDur(s) {
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  return h?`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${m}:${String(sec).padStart(2,'0')}`;
+}
+function fileIcon(n) {
+  const e = n.split('.').pop().toLowerCase();
+  if (['mp4','mkv','webm','avi','mov'].includes(e)) return '🎬';
+  if (['mp3','m4a','aac','ogg','flac','opus'].includes(e)) return '🎵';
+  return '📄';
+}
+
+document.getElementById('url-input').addEventListener('keydown', e => { if (e.key==='Enter') fetchInfo(); });
+</script>
+</body>
+</html>
