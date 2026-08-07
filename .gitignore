@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 模型文件（大文件，不提交）
+*.pt
+*.onnx
+*.bin
+
+# 下载目录
+downloads/
+
+# cookies（包含登录信息，不提交）
+cookies.txt
+platform_cookies/
+
+# 临时文件
+_tmp_frames/
+*.jpg
+*.png
+!static/
+
+# Windows
+Thumbs.db
+desktop.ini
