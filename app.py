@@ -3,6 +3,8 @@ import os
 import json
 import threading
 import uuid
+import tempfile
+import shutil
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 
 app = Flask(__name__, static_folder='static')
@@ -422,15 +424,16 @@ def run_pipeline(task_id, url):
         log('▶ 第三步：烧录字幕到视频')
 
         output_file = base_name + "_字幕.mp4"
-        srt_escaped = srt_path.replace("\\", "/").replace(":", "\\:")
+        # 用临时路径避免 libass 无法处理路径中的单引号
+        tmp_srt = os.path.join(tempfile.gettempdir(), "kiro_tmp_sub.srt")
+        shutil.copy2(srt_path, tmp_srt)
+        srt_escaped = tmp_srt.replace("\\", "/").replace(":", "\\:")
 
         cmd2 = [
             FFMPEG,
             "-i", downloaded_file,
             "-vf", (
-                f"subtitles='{srt_escaped}':"
-                "force_style='FontName=Arial,FontSize=14,"
-                "PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Outline=2,Alignment=2'"
+                f"subtitles='{srt_escaped}'"
             ),
             "-c:v", "libx264",
             "-c:a", "aac",
@@ -454,7 +457,7 @@ def run_pipeline(task_id, url):
         log(f'✅ 烧录完成: {os.path.basename(output_file)} ({size_mb:.1f} MB)')
 
         # ── 清理中间文件 ──────────────────────────────────
-        for tmp in [downloaded_file, srt_path]:
+        for tmp in [downloaded_file, srt_path, tmp_srt]:
             try:
                 if os.path.isfile(tmp):
                     os.remove(tmp)
@@ -806,14 +809,34 @@ def dewatermark_files():
 # ─────────────────────────────────────────────
 # 自动抓取 API
 # ─────────────────────────────────────────────
+# 自动抓取 API  v2 — 只下前20秒+水印检测+历史去重
+# ─────────────────────────────────────────────
 crawl_tasks = {}
+HISTORY_FILE = os.path.join(BASE_DIR, 'crawled_history.json')
+
+def _load_history():
+    """返回 {video_id: {title, url, ts}} 的 dict"""
+    if os.path.isfile(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_history(history):
+    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+def _extract_video_id(url):
+    """从 YouTube URL 提取 video id"""
+    import re
+    m = re.search(r'(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})', url)
+    return m.group(1) if m else url  # fallback 用完整 url
+
 
 def has_watermark(video_path, sample=8, threshold=0.12):
-    """
-    快速检测视频是否有水印
-    取少量帧，计算低标准差（静止）区域占比
-    超过阈值说明有固定水印
-    """
+    """取少量帧，计算低标准差（静止）区域占比，超过阈值 = 有水印"""
     import cv2, numpy as np
     try:
         cap = cv2.VideoCapture(video_path)
@@ -824,45 +847,46 @@ def has_watermark(video_path, sample=8, threshold=0.12):
         step = max(1, total // sample)
         for i in range(0, min(total, sample * step), step):
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            ret, f = cap.read()
+            ret, fr = cap.read()
             if ret:
-                frames.append(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.float32))
+                frames.append(cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY).astype(np.float32))
         cap.release()
         if len(frames) < 4:
             return False
         stack = np.stack(frames, axis=0)
         std_map = np.std(stack, axis=0)
-        # 静止像素占比
         static_ratio = (std_map < 5).sum() / (fw * fh)
         return static_ratio > threshold
-    except:
+    except Exception:
         return False
 
 
-def run_crawl(task_id, keyword, count, auto_pipeline):
+def run_crawl(task_id, keyword, count):
     from datetime import datetime
-    import re
 
     task = crawl_tasks[task_id]
-
     def log(msg):
         task['logs'].append(msg)
 
-    try:
-        log(f'🔍 搜索关键词: {keyword}')
-        log(f'目标数量: {count} 个无水印视频')
+    tmp_dir = os.path.join(DOWNLOAD_DIR, '_crawl_tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
 
-        # yt-dlp 搜索
-        search_query = f'ytsearch{count * 3}:{keyword} motivational short'
+    try:
+        history = _load_history()
+        log(f'📚 历史记录: 已抓取 {len(history)} 个视频')
+        log(f'🔍 搜索关键词: {keyword}，目标 {count} 个')
+        log('')
+
+        # ── 搜索候选 ──────────────────────────────────────
+        search_query = f'ytsearch{count * 5}:{keyword}'
         cmd = [YT_DLP] + get_base_args() + [
-            '--dump-json', '--flat-playlist',
-            '--no-playlist',
+            '--dump-json', '--flat-playlist', '--no-playlist',
             search_query
         ]
         result = subprocess.run(cmd, capture_output=True, text=True,
                                 encoding='utf-8', errors='replace', timeout=60)
 
-        videos = []
+        candidates = []
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if not line:
@@ -872,149 +896,151 @@ def run_crawl(task_id, keyword, count, auto_pipeline):
                 url = info.get('url') or info.get('webpage_url', '')
                 if url and not url.startswith('http'):
                     url = 'https://www.youtube.com/watch?v=' + url
-                title = info.get('title', '未知标题')
-                duration = info.get('duration', 0)
-                # 只要短视频（10秒~5分钟）
-                if duration and (duration < 10 or duration > 300):
+                vid_id    = _extract_video_id(url)
+                title     = info.get('title', '未知标题')
+                duration  = info.get('duration', 0)
+                thumbnail = info.get('thumbnail', '')
+                uploader  = info.get('uploader', '')
+                # 过滤时长（30秒 ~ 10分钟）
+                if duration and (duration < 30 or duration > 600):
                     continue
                 if url:
-                    videos.append({'url': url, 'title': title, 'duration': duration})
-            except:
+                    candidates.append({
+                        'url': url, 'id': vid_id, 'title': title,
+                        'duration': duration, 'thumbnail': thumbnail,
+                        'uploader': uploader
+                    })
+            except Exception:
                 continue
 
-        log(f'找到 {len(videos)} 个候选视频')
+        log(f'找到 {len(candidates)} 个候选视频')
 
-        if not videos:
-            task['status'] = 'error'
-            task['error'] = '未找到相关视频'
+        # ── 过滤历史 ──────────────────────────────────────
+        new_candidates = [v for v in candidates if v['id'] not in history]
+        skipped_hist   = len(candidates) - len(new_candidates)
+        if skipped_hist:
+            log(f'⏭  跳过已抓取过的 {skipped_hist} 个（历史去重）')
+        log(f'待检测: {len(new_candidates)} 个新视频')
+
+        if not new_candidates:
+            task['status'] = 'done'
+            log('\n⚠️  所有候选都已抓取过，换个关键词试试')
             return
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        out_dir = os.path.join(DOWNLOAD_DIR, today)
-        os.makedirs(out_dir, exist_ok=True)
+        # ── 逐个下载前20秒 + 水印检测 ─────────────────────
+        results     = []   # 最终返回给前端的列表
+        skipped_wm  = 0
 
-        processed = 0
-        skipped_wm = 0
-
-        for i, video in enumerate(videos):
-            if processed >= count:
+        for i, video in enumerate(new_candidates):
+            if len(results) >= count:
                 break
 
             url   = video['url']
+            vid_id = video['id']
             title = video['title']
-            log(f'\n[{i+1}/{len(videos)}] {title}')
+            log(f'[{i+1}/{len(new_candidates)}] {title[:50]}')
 
-            # ── 先下载视频 ──
-            log(f'  ⬇ 下载中...')
-            tmp_name = f'_tmp_{task_id}_{i}'
-            tmp_path = os.path.join(out_dir, tmp_name + '.%(ext)s')
+            # 下载完整视频（最低画质加速）→ 本地截取前20秒
+            tmp_full = os.path.join(tmp_dir, f'full_{task_id}_{i}.%(ext)s')
             dl_cmd = [YT_DLP] + get_base_args() + [
-                '-f', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
-                '-o', tmp_path,
-                '--no-playlist', url
+                '-f', 'worstvideo[ext=mp4]+worstaudio[ext=m4a]/worst[ext=mp4]/worst',
+                '--no-playlist',
+                '-o', tmp_full,
+                url
             ]
             r = subprocess.run(dl_cmd, capture_output=True, text=True,
                                encoding='utf-8', errors='replace', timeout=120)
 
-            # 找下载的文件（扫描目录找前缀匹配）
-            downloaded = None
-            for f in sorted(os.listdir(out_dir)):
-                if f.startswith(tmp_name) and not f.endswith('.part'):
-                    downloaded = os.path.join(out_dir, f)
+            # 打印错误供调试
+            if r.returncode != 0:
+                err_tail = (r.stderr or r.stdout or '')[-400:].strip()
+                log(f'  ❌ 下载失败 (code={r.returncode})')
+                for line in err_tail.split('\n')[-6:]:
+                    if line.strip():
+                        log(f'     {line.strip()}')
+
+            # 找到下载的完整文件
+            full_file = None
+            full_prefix = f'full_{task_id}_{i}'
+            for fn in os.listdir(tmp_dir):
+                if fn.startswith(full_prefix) and not fn.endswith('.part'):
+                    full_file = os.path.join(tmp_dir, fn)
                     break
 
-            if r.returncode != 0 or not downloaded:
-                log(f'  ❌ 下载失败，跳过')
-                if r.returncode != 0:
-                    # 打印前200字符错误
-                    err = (r.stderr or r.stdout or '')[-200:]
-                    log(f'  错误: {err}')
+            if not full_file:
+                if r.returncode == 0:
+                    log(f'  ❌ 下载成功但找不到文件，跳过')
                 continue
 
-            # ── 检测水印 ──
-            log(f'  🔍 检测水印...')
-            wm = has_watermark(downloaded)
-            if wm:
-                os.remove(downloaded)
-                skipped_wm += 1
-                task['skipped'] = skipped_wm
-                log(f'  ⚠️ 检测到水印，已跳过')
-                continue
+            # 用 ffmpeg 本地截取前20秒作为预览片段
+            preview_file = os.path.join(tmp_dir, f'preview_{task_id}_{i}.mp4')
+            ff_cmd = [
+                FFMPEG, '-y', '-ss', '0', '-i', full_file,
+                '-t', '20', '-c', 'copy', preview_file
+            ]
+            subprocess.run(ff_cmd, capture_output=True, timeout=30)
 
-            log(f'  ✅ 无水印')
+            # 截取失败就直接用完整文件检测
+            if not os.path.isfile(preview_file):
+                preview_file = full_file
+            wm = has_watermark(preview_file)
+            wm_label = '⚠️ 有水印' if wm else '✅ 无水印'
+            log(f'  {wm_label} — 加入结果')
 
-            if auto_pipeline:
-                # ── 跑字幕流水线 ──
-                log(f'  📝 生成字幕...')
-                try:
-                    import whisper
-                    model = whisper.load_model("base")
-                    res = model.transcribe(downloaded, task="translate", language="en", verbose=False)
-                    segments = res["segments"]
+            # 记录到历史（无论有没有水印，都记为已检测过，避免重复）
+            from datetime import datetime as _dt
+            history[vid_id] = {
+                'title': title,
+                'url': url,
+                'has_watermark': wm,
+                'ts': _dt.now().strftime('%Y-%m-%d %H:%M')
+            }
 
-                    try:
-                        from deep_translator import GoogleTranslator
-                        translator = GoogleTranslator(source="en", target="zh-CN")
-                        for seg in segments:
-                            try:
-                                seg["text"] = translator.translate(seg["text"].strip())
-                            except:
-                                pass
-                    except ImportError:
-                        pass
+            results.append({
+                'id':          vid_id,
+                'url':         url,
+                'title':       title,
+                'duration':    video['duration'],
+                'thumbnail':   video['thumbnail'],
+                'uploader':    video['uploader'],
+                'has_watermark': wm,
+                'preview_file': os.path.basename(preview_file),
+            })
 
-                    def ft(s):
-                        ms = int((s%1)*1000)
-                        return f"{int(s)//3600:02d}:{int(s)//60%60:02d}:{int(s)%60:02d},{ms:03d}"
+            task['results']    = results
+            task['processed']  = len(results)
+            task['skipped_wm'] = skipped_wm
 
-                    base_name = os.path.splitext(downloaded)[0]
-                    srt_path  = base_name + '_zh.srt'
-                    with open(srt_path, 'w', encoding='utf-8') as sf:
-                        for idx, seg in enumerate(segments, 1):
-                            sf.write(f"{idx}\n{ft(seg['start'])} --> {ft(seg['end'])}\n{seg['text'].strip()}\n\n")
+        # 保存历史
+        _save_history(history)
 
-                    output_file  = base_name + '_字幕.mp4'
-                    srt_escaped  = srt_path.replace('\\', '/').replace(':', '\\:')
-                    ffcmd = [
-                        FFMPEG, '-y', '-i', downloaded,
-                        '-vf', f"subtitles='{srt_escaped}':force_style='FontName=Arial,FontSize=14,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Outline=2,Alignment=2'",
-                        '-c:v', 'libx264', '-c:a', 'aac', '-b:a', '128k',
-                        '-pix_fmt', 'yuv420p', '-y', output_file
-                    ]
-                    subprocess.run(ffcmd, capture_output=True)
-                    for tmp in [downloaded, srt_path]:
-                        if os.path.isfile(tmp):
-                            os.remove(tmp)
-                    log(f'  🎬 完成: {os.path.basename(output_file)}')
-                    task['results'].append(output_file)
-                except Exception as e:
-                    log(f'  ⚠️ 字幕失败: {e}，保留原视频')
-                    task['results'].append(downloaded)
-            else:
-                task['results'].append(downloaded)
-                log(f'  💾 已保存: {os.path.basename(downloaded)}')
-
-            processed += 1
-            task['processed'] = processed
-
-        log(f'\n🎉 完成！共处理 {processed} 个视频，跳过水印 {skipped_wm} 个')
-        log(f'📁 保存目录: {out_dir}')
-        task['status'] = 'done'
-        task['output_dir'] = out_dir
+        task['status']     = 'done'
+        task['results']    = results
+        task['processed']  = len(results)
+        task['skipped_wm'] = skipped_wm
+        log(f'\n🎉 完成！共检测 {len(results)} 个视频')
+        log(f'📌 结果已记录到历史，下次自动跳过')
 
     except Exception as e:
         import traceback
         task['status'] = 'error'
-        task['error'] = str(e)
+        task['error']  = str(e)
         task['logs'].append(f'❌ {traceback.format_exc()}')
+    finally:
+        # 清理临时预览文件
+        for fn in os.listdir(tmp_dir):
+            if fn.startswith(f'preview_{task_id}_') or fn.startswith(f'full_{task_id}_'):
+                try:
+                    os.remove(os.path.join(tmp_dir, fn))
+                except Exception:
+                    pass
 
 
 @app.route('/api/crawl/start', methods=['POST'])
 def crawl_start():
-    data = request.json
-    keyword       = data.get('keyword', '').strip()
-    count         = min(int(data.get('count', 5)), 20)
-    auto_pipeline = data.get('auto_pipeline', True)
+    data    = request.json
+    keyword = data.get('keyword', '').strip()
+    count   = min(int(data.get('count', 5)), 30)
 
     if not keyword:
         return jsonify({'error': '请输入关键词'}), 400
@@ -1022,11 +1048,11 @@ def crawl_start():
     task_id = str(uuid.uuid4())
     crawl_tasks[task_id] = {
         'status': 'running', 'logs': [],
-        'processed': 0, 'skipped': 0,
-        'results': [], 'output_dir': '', 'error': ''
+        'processed': 0, 'skipped_wm': 0,
+        'results': [], 'error': ''
     }
     t = threading.Thread(target=run_crawl,
-                         args=(task_id, keyword, count, auto_pipeline), daemon=True)
+                         args=(task_id, keyword, count), daemon=True)
     t.start()
     return jsonify({'task_id': task_id})
 
@@ -1037,6 +1063,144 @@ def crawl_task_status(task_id):
     if not task:
         return jsonify({'error': '任务不存在'}), 404
     return jsonify(task)
+
+
+@app.route('/api/crawl/history', methods=['GET'])
+def crawl_history():
+    """返回历史记录列表"""
+    history = _load_history()
+    items = [{'id': k, **v} for k, v in history.items()]
+    items.sort(key=lambda x: x.get('ts', ''), reverse=True)
+    return jsonify({'count': len(items), 'items': items})
+
+
+@app.route('/api/crawl/history/clear', methods=['POST'])
+def crawl_history_clear():
+    """清空历史记录"""
+    _save_history({})
+    return jsonify({'ok': True})
+
+# ─────────────────────────────────────────────
+# 视频切割工具 API
+# ─────────────────────────────────────────────
+cutter_tasks = {}
+
+@app.route('/cutter')
+def cutter_page():
+    return send_from_directory('static', 'cutter.html')
+
+@app.route('/api/cutter/open', methods=['POST'])
+def cutter_open():
+    """接收前端上传的文件，保存到临时位置并返回服务端路径"""
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'error': '未收到文件'}), 400
+    # 保存到下载目录下的临时文件夹
+    tmp_dir = os.path.join(DOWNLOAD_DIR, '_cutter_tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
+    # 清理旧临时文件
+    for old in os.listdir(tmp_dir):
+        try:
+            os.remove(os.path.join(tmp_dir, old))
+        except Exception:
+            pass
+    filename = f.filename or 'video.mp4'
+    save_path = os.path.join(tmp_dir, filename)
+    f.save(save_path)
+    return jsonify({'path': save_path, 'filename': filename})
+
+@app.route('/api/cutter/cut', methods=['POST'])
+def cutter_cut():
+    """提交切割任务"""
+    data = request.json
+    file_path  = data.get('file', '').strip()
+    segments   = data.get('segments', [])   # [{start, end}, ...]
+    output_dir = data.get('output_dir', '').strip()
+
+    if not file_path or not os.path.isfile(file_path):
+        return jsonify({'error': f'文件不存在: {file_path}'}), 400
+    if not segments:
+        return jsonify({'error': '没有切割段'}), 400
+
+    # 输出目录：指定 > 视频同目录
+    if not output_dir:
+        output_dir = os.path.dirname(file_path)
+    os.makedirs(output_dir, exist_ok=True)
+
+    task_id = str(uuid.uuid4())
+    cutter_tasks[task_id] = {
+        'status': 'running',
+        'logs': [],
+        'done_count': 0,
+        'total': len(segments),
+        'error': '',
+    }
+    t = threading.Thread(
+        target=_run_cut,
+        args=(task_id, file_path, segments, output_dir),
+        daemon=True
+    )
+    t.start()
+    return jsonify({'task_id': task_id})
+
+def _run_cut(task_id, file_path, segments, output_dir):
+    task = cutter_tasks[task_id]
+    def log(msg):
+        task['logs'].append(msg)
+
+    base = os.path.splitext(os.path.basename(file_path))[0]
+    total = len(segments)
+
+    for i, seg in enumerate(segments):
+        start = float(seg['start'])
+        end   = float(seg['end'])
+        duration = end - start
+        if duration <= 0:
+            log(f'⚠️  段 {i+1}: 时长为0，跳过')
+            task['done_count'] = i + 1
+            continue
+
+        out_name = f"{base}_part{i+1:03d}.mp4"
+        out_path = os.path.join(output_dir, out_name)
+        log(f'[{i+1}/{total}] {out_name}  ({_fmt(start)} → {_fmt(end)})')
+
+        cmd = [
+            FFMPEG, '-y',
+            '-ss', str(start),
+            '-i', file_path,
+            '-t', str(duration),
+            '-c', 'copy',          # 无损切割，速度极快
+            '-avoid_negative_ts', 'make_zero',
+            out_path
+        ]
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        if r.returncode == 0:
+            size_mb = os.path.getsize(out_path) / 1024 / 1024
+            log(f'  ✅ 完成 ({size_mb:.1f} MB)')
+        else:
+            err = r.stderr[-200:].strip()
+            log(f'  ❌ 失败: {err}')
+
+        task['done_count'] = i + 1
+
+    task['status'] = 'done'
+    log(f'\n🎉 全部完成！输出目录: {output_dir}')
+
+def _fmt(s):
+    h = int(s) // 3600
+    m = int(s) % 3600 // 60
+    sec = s % 60
+    return f"{h:02d}:{m:02d}:{sec:06.3f}"
+
+@app.route('/api/cutter/task/<task_id>', methods=['GET'])
+def cutter_task_status(task_id):
+    task = cutter_tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '任务不存在'}), 404
+    return jsonify(task)
+
+
 if __name__ == '__main__':
     print(f"yt-dlp 路径: {YT_DLP}")
     print(f"下载目录: {DOWNLOAD_DIR}")
