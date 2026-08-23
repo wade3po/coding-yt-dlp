@@ -2578,13 +2578,53 @@
         log.scrollTop = log.scrollHeight;
       }
 
-      async function startPipeline() {
+      async function startPipeline(force = false) {
         const url = document.getElementById("pipe-url").value.trim();
         if (!url) return toast("请输入链接", "err");
 
         const btn = document.getElementById("pipe-btn");
         btn.disabled = true;
 
+        // 先检查是否下载过（force=false 时）
+        if (!force) {
+          try {
+            const chk = await api("POST", "/api/pipeline/start", { url, force: false });
+            if (chk.already_downloaded) {
+              btn.disabled = false;
+              const yes = confirm(
+                `⚠️ 该视频已于 ${chk.ts} 下载过\n\n` +
+                `文件：${chk.title}\n\n` +
+                `是否重新下载？`
+              );
+              if (!yes) return;
+              // 用户确认，强制重新下载
+              return startPipeline(true);
+            }
+            // 正常启动（后端已创建 task）
+            if (chk.task_id) {
+              _launchPipeline(url, chk.task_id, btn);
+              return;
+            }
+            if (chk.error) { showPipeErr(chk.error); btn.disabled = false; return; }
+          } catch(e) {
+            showPipeErr("启动失败: " + e.message);
+            btn.disabled = false;
+            return;
+          }
+        }
+
+        // force=true：重新提交
+        try {
+          const d = await api("POST", "/api/pipeline/start", { url, force: true });
+          if (d.error) { showPipeErr(d.error); btn.disabled = false; return; }
+          if (d.task_id) _launchPipeline(url, d.task_id, btn);
+        } catch(e) {
+          showPipeErr("启动失败: " + e.message);
+          btn.disabled = false;
+        }
+      }
+
+      function _launchPipeline(url, taskId, btn) {
         // reset UI
         document.getElementById("pipe-log").textContent = "";
         document.getElementById("pipe-result").style.display = "none";
@@ -2599,21 +2639,9 @@
 
         pipeLog("🚀 启动流水线...");
         pipeLog("链接: " + url);
-
-        try {
-          const d = await api("POST", "/api/pipeline/start", { url });
-          if (d.error) {
-            showPipeErr(d.error);
-            btn.disabled = false;
-            return;
-          }
-          pipeTaskId = d.task_id;
-          pipeLog("任务ID: " + d.task_id);
-          pipePollTimer = setInterval(() => pollPipeline(d.task_id), 1000);
-        } catch (e) {
-          showPipeErr("启动失败: " + e.message);
-          btn.disabled = false;
-        }
+        pipeTaskId = taskId;
+        pipeLog("任务ID: " + taskId);
+        pipePollTimer = setInterval(() => pollPipeline(taskId), 1000);
       }
 
       async function pollPipeline(id) {

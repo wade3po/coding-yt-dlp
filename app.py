@@ -296,6 +296,26 @@ def open_folder():
 # 自动流水线 API
 # ─────────────────────────────────────────────
 pipeline_tasks = {}
+PIPELINE_HISTORY_FILE = os.path.join(BASE_DIR, 'pipeline_history.json')
+
+def _load_pipeline_history():
+    if os.path.isfile(PIPELINE_HISTORY_FILE):
+        try:
+            with open(PIPELINE_HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_pipeline_history(history):
+    with open(PIPELINE_HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+def _normalize_url(url):
+    """提取 YouTube video id 作为去重 key，其他平台直接用 url"""
+    import re
+    m = re.search(r'(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})', url)
+    return m.group(1) if m else url.split('?')[0].rstrip('/')
 
 def run_pipeline(task_id, url):
     import re
@@ -474,6 +494,18 @@ def run_pipeline(task_id, url):
         log(f'📁 目录: {out_dir}')
         log(f'🎬 视频: {output_file}')
 
+        # ── 写入流水线历史 ────────────────────────────────
+        from datetime import datetime as _dt
+        history = _load_pipeline_history()
+        key = _normalize_url(url)
+        history[key] = {
+            'url': url,
+            'output_file': output_file,
+            'ts': _dt.now().strftime('%Y-%m-%d %H:%M'),
+            'title': os.path.basename(output_file),
+        }
+        _save_pipeline_history(history)
+
     except Exception as e:
         fail(str(e))
 
@@ -481,9 +513,23 @@ def run_pipeline(task_id, url):
 @app.route('/api/pipeline/start', methods=['POST'])
 def pipeline_start():
     data = request.json
-    url = data.get('url', '').strip()
+    url   = data.get('url', '').strip()
+    force = data.get('force', False)   # 强制重新下载
     if not url:
         return jsonify({'error': '请输入有效的 URL'}), 400
+
+    # 检查是否下载过
+    key = _normalize_url(url)
+    history = _load_pipeline_history()
+    if key in history and not force:
+        rec = history[key]
+        return jsonify({
+            'already_downloaded': True,
+            'ts': rec.get('ts', ''),
+            'title': rec.get('title', ''),
+            'output_file': rec.get('output_file', ''),
+            'url': url,
+        })
 
     task_id = str(uuid.uuid4())
     pipeline_tasks[task_id] = {
@@ -512,6 +558,20 @@ def pipeline_task(task_id):
         'output_file': task['output_file'],
         'error': task['error'],
     })
+
+
+@app.route('/api/pipeline/history', methods=['GET'])
+def pipeline_history():
+    history = _load_pipeline_history()
+    items = [{'key': k, **v} for k, v in history.items()]
+    items.sort(key=lambda x: x.get('ts', ''), reverse=True)
+    return jsonify({'count': len(items), 'items': items})
+
+
+@app.route('/api/pipeline/history/clear', methods=['POST'])
+def pipeline_history_clear():
+    _save_pipeline_history({})
+    return jsonify({'ok': True})
 
 
 # ─────────────────────────────────────────────
