@@ -345,6 +345,58 @@
       border-radius: 2px;
       transition: width .3s;
     }
+
+    /* ── 文案解析区 ── */
+    .script-area {
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .script-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      user-select: none;
+      transition: background .15s;
+    }
+    .script-head:hover { background: #12151f; }
+    .script-body {
+      padding: 0 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .script-body.collapsed { display: none; }
+    #scriptInput {
+      width: 100%;
+      height: 120px;
+      background: #12151f;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-size: 12px;
+      padding: 8px;
+      resize: vertical;
+      outline: none;
+      font-family: inherit;
+      line-height: 1.6;
+    }
+    #scriptInput:focus { border-color: var(--accent); }
+    .script-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .script-msg {
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: 5px;
+    }
+    .script-msg.ok  { background: #0d2b1e; color: #10b981; }
+    .script-msg.err { background: #2b0d0d; color: #ef4444; }
   </style>
 </head>
 <body>
@@ -410,6 +462,26 @@
 
   <!-- 右侧标记列表 -->
   <div class="sidebar">
+    <!-- 文案解析区 -->
+    <div class="script-area" id="scriptArea">
+      <div class="script-head" onclick="toggleScript()">
+        <span>📋 文案解析</span>
+        <span id="scriptToggleIcon">▼</span>
+      </div>
+      <div class="script-body" id="scriptBody">
+        <textarea id="scriptInput" placeholder="粘贴片段文案，格式如：
+第 1 片段：[00:00] – [01:04]
+第 2 片段：[01:04] – [02:10]
+…
+支持 [MM:SS] 或 [HH:MM:SS] 格式"></textarea>
+        <div class="script-actions">
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="document.getElementById('scriptInput').value=''">清空</button>
+          <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="parseScript()">📌 解析并填入标记</button>
+        </div>
+        <div id="scriptMsg" class="script-msg" style="display:none"></div>
+      </div>
+    </div>
+
     <div class="sidebar-head">
       <h2>时间标记</h2>
       <span class="badge" id="markerCount">0</span>
@@ -669,7 +741,64 @@ function renderPins() {
 }
 video.addEventListener('loadedmetadata', renderPins);
 
-// ── 切割 ──────────────────────────
+// ── 文案解析 ──────────────────────
+let scriptCollapsed = false;
+
+function toggleScript() {
+  scriptCollapsed = !scriptCollapsed;
+  document.getElementById('scriptBody').classList.toggle('collapsed', scriptCollapsed);
+  document.getElementById('scriptToggleIcon').textContent = scriptCollapsed ? '▶' : '▼';
+}
+
+function parseScript() {
+  const text = document.getElementById('scriptInput').value;
+  const msgEl = document.getElementById('scriptMsg');
+
+  // 匹配所有 [HH:MM:SS] 或 [MM:SS] 格式的时间码
+  // 例：[00:00]  [01:04]  [01:04:30]  [1:04]
+  const timeRe = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+  const found = [];
+  let m;
+  while ((m = timeRe.exec(text)) !== null) {
+    found.push(m[1]);
+  }
+
+  if (found.length === 0) {
+    showScriptMsg('未找到时间码，格式应为 [MM:SS] 或 [HH:MM:SS]', 'err');
+    return;
+  }
+
+  // 时间码转秒数
+  function toSec(str) {
+    const parts = str.split(':').map(Number);
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return NaN;
+  }
+
+  // 去重 + 排序
+  const times = [...new Set(found.map(toSec))].sort((a, b) => a - b);
+
+  markers = times.map(t => ({ time: t }));
+  renderMarkers();
+  renderPins();
+
+  showScriptMsg(`✓ 已解析 ${times.length} 个时间点，生成 ${times.length - 1} 段`, 'ok');
+
+  // 如果还没有视频，提示一下
+  if (!currentFileURL) {
+    showScriptMsg(`✓ 解析 ${times.length} 个时间点 — 请先打开视频再切割`, 'ok');
+  }
+}
+
+function showScriptMsg(text, type) {
+  const el = document.getElementById('scriptMsg');
+  el.textContent = text;
+  el.className = 'script-msg ' + type;
+  el.style.display = 'block';
+}
+
+
 async function startCut() {
   if (markers.length < 2) {
     alert('至少需要 2 个标记（定义至少 1 段）');

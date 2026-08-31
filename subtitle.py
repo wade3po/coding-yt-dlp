@@ -89,9 +89,28 @@ def main():
         from deep_translator import GoogleTranslator
         print("正在翻译成中文...")
         translator = GoogleTranslator(source="en", target="zh-CN")
+        MAX_CHARS = 490
+        ok = fail = 0
         for seg in segments:
-            seg["text"] = translator.translate(seg["text"].strip())
-        print("中文翻译完成")
+            raw = seg["text"].strip()
+            if not raw:
+                continue
+            text = raw[:MAX_CHARS] if len(raw) > MAX_CHARS else raw
+            translated = None
+            for attempt in range(3):
+                try:
+                    translated = GoogleTranslator(source="en", target="zh-CN").translate(text)
+                    if translated:
+                        break
+                except Exception as e:
+                    if attempt == 2:
+                        print(f"  ⚠️ 翻译失败（保留原文）: {e}")
+            if translated:
+                seg["text"] = translated
+                ok += 1
+            else:
+                fail += 1
+        print(f"翻译完成：{ok} 段成功" + (f"，{fail} 段保留原文" if fail else ""))
     except ImportError:
         print("提示：未安装 deep-translator，字幕将保留英文。")
         print("安装中文翻译: pip install deep-translator")

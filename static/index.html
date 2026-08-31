@@ -657,6 +657,15 @@
         color: var(--red);
       }
 
+      #pipe-script-input:focus {
+        border-color: var(--accent) !important;
+        background: var(--white) !important;
+      }
+      #ct-script-input:focus {
+        border-color: var(--accent) !important;
+        background: var(--white) !important;
+      }
+
       .empty {
         text-align: center;
         padding: 48px;
@@ -1144,17 +1153,22 @@
         <!-- ── Crawl ── -->
         <div class="page" id="page-crawl">
           <div class="page-title">🎯 自动抓取</div>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:20px">
-            搜索 YouTube → 只下前20秒片段 → 水印检测 → 返回结果列表<br>
+          <p style="font-size: 13px; color: var(--text2); margin-bottom: 20px">
+            搜索 YouTube → 只下前20秒片段 → 水印检测 → 返回结果列表<br />
             <b>自动去重</b>：已检测过的视频下次会自动跳过
           </p>
           <div class="card">
             <div class="card-title">搜索设置</div>
-            <div style="display:flex;gap:8px;margin-bottom:14px">
-              <input class="url-input" id="crawl-keyword" type="text"
-                placeholder="关键词，如：motivational speech kobe bryant" style="flex:1"/>
+            <div style="display: flex; gap: 8px; margin-bottom: 14px">
+              <input
+                class="url-input"
+                id="crawl-keyword"
+                type="text"
+                placeholder="关键词，如：motivational speech kobe bryant"
+                style="flex: 1"
+              />
             </div>
-            <div class="opt-grid" style="margin-bottom:16px">
+            <div class="opt-grid" style="margin-bottom: 16px">
               <div class="opt-item">
                 <label>检测数量</label>
                 <select id="crawl-count">
@@ -1165,36 +1179,127 @@
                 </select>
               </div>
             </div>
-            <div class="action-row" style="gap:10px;flex-wrap:wrap">
-              <button class="btn btn-primary" id="crawl-btn" onclick="startCrawl()">🔍 开始检测</button>
-              <button class="btn btn-outline btn-sm" onclick="showCrawlHistory()">📚 历史记录</button>
-              <button class="btn btn-outline btn-sm" onclick="clearCrawlHistory()">🗑 清空历史</button>
-              <span id="crawl-hist-count" style="font-size:12px;color:var(--text2)"></span>
+            <div class="action-row" style="gap: 10px; flex-wrap: wrap">
+              <button
+                class="btn btn-primary"
+                id="crawl-btn"
+                onclick="startCrawl()"
+              >
+                🔍 开始检测
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="showCrawlHistory()"
+              >
+                📚 历史记录
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="clearCrawlHistory()"
+              >
+                🗑 清空历史
+              </button>
+              <span
+                id="crawl-hist-count"
+                style="font-size: 12px; color: var(--text2)"
+              ></span>
             </div>
           </div>
-          <div class="card" id="crawl-progress-card" style="display:none">
+          <div class="card" id="crawl-progress-card" style="display: none">
             <div class="card-title">检测进度</div>
-            <div style="display:flex;gap:16px;margin-bottom:12px;font-size:13px">
+            <div
+              style="
+                display: flex;
+                gap: 16px;
+                margin-bottom: 12px;
+                font-size: 13px;
+              "
+            >
               <span>🔍 已检测：<b id="crawl-processed">0</b></span>
               <span>⚠️ 有水印：<b id="crawl-skipped">0</b></span>
             </div>
-            <div class="log" id="crawl-log" style="height:200px"></div>
-            <div id="crawl-error" class="err-box" style="display:none;margin-top:14px"></div>
+            <div class="log" id="crawl-log" style="height: 200px"></div>
+            <div
+              id="crawl-error"
+              class="err-box"
+              style="display: none; margin-top: 14px"
+            ></div>
           </div>
-          <div id="crawl-results-wrap" style="display:none;margin-top:8px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:14px;font-weight:600">检测结果 <span id="crawl-result-count" style="color:var(--text2);font-weight:400;font-size:13px"></span></div>
-              <div style="font-size:12px;color:var(--text2)">无水印的视频可复制链接到「下载」页下载</div>
-            </div>
-            <div id="crawl-result-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px"></div>
-          </div>
-          <div id="crawl-hist-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:flex-start;justify-content:center;padding-top:60px">
-            <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px;width:600px;max-height:70vh;display:flex;flex-direction:column">
-              <div style="display:flex;align-items:center;margin-bottom:14px">
-                <span style="font-size:15px;font-weight:600;flex:1">📚 已抓取历史</span>
-                <button class="btn btn-outline btn-sm" onclick="document.getElementById('crawl-hist-overlay').style.display='none'">关闭</button>
+          <div id="crawl-results-wrap" style="display: none; margin-top: 8px">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 12px;
+              "
+            >
+              <div style="font-size: 14px; font-weight: 600">
+                检测结果
+                <span
+                  id="crawl-result-count"
+                  style="color: var(--text2); font-weight: 400; font-size: 13px"
+                ></span>
               </div>
-              <div id="crawl-hist-list" style="overflow-y:auto;flex:1;font-size:13px"></div>
+              <div style="font-size: 12px; color: var(--text2)">
+                无水印的视频可复制链接到「下载」页下载
+              </div>
+            </div>
+            <div
+              id="crawl-result-list"
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 12px;
+              "
+            ></div>
+          </div>
+          <div
+            id="crawl-hist-overlay"
+            style="
+              display: none;
+              position: fixed;
+              inset: 0;
+              background: rgba(0, 0, 0, 0.4);
+              z-index: 200;
+              align-items: flex-start;
+              justify-content: center;
+              padding-top: 60px;
+            "
+          >
+            <div
+              style="
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 20px;
+                width: 600px;
+                max-height: 70vh;
+                display: flex;
+                flex-direction: column;
+              "
+            >
+              <div
+                style="display: flex; align-items: center; margin-bottom: 14px"
+              >
+                <span style="font-size: 15px; font-weight: 600; flex: 1"
+                  >📚 已抓取历史</span
+                >
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="
+                    document.getElementById(
+                      'crawl-hist-overlay',
+                    ).style.display = 'none'
+                  "
+                >
+                  关闭
+                </button>
+              </div>
+              <div
+                id="crawl-hist-list"
+                style="overflow-y: auto; flex: 1; font-size: 13px"
+              ></div>
             </div>
           </div>
         </div>
@@ -1226,31 +1331,40 @@
             </div>
           </div>
 
+          <!-- 片段文案卡片（可折叠） -->
+          <div class="card" id="pipe-script-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none"
+                 onclick="togglePipeScript()">
+              <div class="card-title" style="margin:0">✂️ 片段文案（可选）</div>
+              <span id="pipe-script-icon" style="font-size:12px;color:var(--text2)">▼ 展开</span>
+            </div>
+            <div id="pipe-script-body" style="display:none;margin-top:14px">
+              <p style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.75">
+                粘贴片段文案，程序会自动提取时间码。有文案时流程变为：<br>
+                <strong style="color:var(--text)">下载 → 切割 → 逐段识别翻译 → 逐段烧录 → 完成</strong>
+              </p>
+              <textarea id="pipe-script-input"
+                style="width:100%;height:130px;background:var(--s2);border:1.5px solid var(--border);
+                       border-radius:var(--r);color:var(--text);font-size:12px;padding:10px;
+                       outline:none;resize:vertical;font-family:inherit;line-height:1.6;transition:border-color .14s"
+                placeholder="粘贴文案，例如：
+第 1 片段：[00:00] – [01:04]（约 1分04秒）
+第 2 片段：[01:04] – [02:10]（约 1分06秒）
+…
+支持 [MM:SS] 或 [HH:MM:SS] 格式"></textarea>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                <button class="btn btn-outline btn-sm" onclick="parsePipeScript()">📌 解析时间码</button>
+                <button class="btn btn-outline btn-sm" onclick="clearPipeScript()">清空</button>
+                <span id="pipe-script-msg" style="font-size:12px;color:var(--text2)"></span>
+              </div>
+            </div>
+          </div>
+
           <div id="pipe-progress-card" class="card" style="display: none">
             <div class="card-title">执行进度</div>
 
-            <!-- 步骤指示器 -->
-            <div style="display: flex; gap: 0; margin-bottom: 18px">
-              <div class="pipe-step" id="ps-1">
-                <div class="ps-dot" id="pd-1">1</div>
-                <div class="ps-label">下载</div>
-              </div>
-              <div class="ps-line" id="pl-1"></div>
-              <div class="pipe-step" id="ps-2">
-                <div class="ps-dot" id="pd-2">2</div>
-                <div class="ps-label">识别翻译</div>
-              </div>
-              <div class="ps-line" id="pl-2"></div>
-              <div class="pipe-step" id="ps-3">
-                <div class="ps-dot" id="pd-3">3</div>
-                <div class="ps-label">烧录字幕</div>
-              </div>
-              <div class="ps-line" id="pl-3"></div>
-              <div class="pipe-step" id="ps-4">
-                <div class="ps-dot" id="pd-4">4</div>
-                <div class="ps-label">完成</div>
-              </div>
-            </div>
+            <!-- 步骤指示器（动态渲染） -->
+            <div id="pipe-steps-row" style="display: flex; gap: 0; margin-bottom: 18px"></div>
 
             <div class="log" id="pipe-log" style="height: 260px"></div>
 
@@ -1279,88 +1393,437 @@
         <!-- ── Cutter ── -->
         <div class="page" id="page-cutter">
           <div class="page-title">✂️ 视频切割</div>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+          <p style="font-size: 13px; color: var(--text2); margin-bottom: 16px">
             打开本地视频，打上时间标记，一键切割成多个片段（无损，速度极快）。
           </p>
-          <div id="cutter-app" style="display:flex;gap:16px;height:calc(100vh - 180px)">
-
+          <div
+            id="cutter-app"
+            style="display: flex; gap: 16px; height: calc(100vh - 180px)"
+          >
             <!-- 左：播放器 -->
-            <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+            <div
+              style="
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+              "
+            >
               <!-- 视频区 -->
-              <div id="ct-video-wrap" style="flex:1;background:#000;border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer" onclick="document.getElementById('ct-file-input').click()">
-                <div id="ct-drop-hint" style="display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--text2);pointer-events:none">
-                  <div style="font-size:40px">🎬</div>
-                  <div style="font-size:14px">点击或拖拽视频到此处</div>
-                  <div style="font-size:12px">支持 mp4 / webm / mkv / mov 等</div>
+              <div
+                id="ct-video-wrap"
+                style="
+                  flex: 1;
+                  background: #000;
+                  border-radius: 10px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  position: relative;
+                  overflow: hidden;
+                  cursor: pointer;
+                "
+                onclick="document.getElementById('ct-file-input').click()"
+              >
+                <div
+                  id="ct-drop-hint"
+                  style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                    color: var(--text2);
+                    pointer-events: none;
+                  "
+                >
+                  <div style="font-size: 40px">🎬</div>
+                  <div style="font-size: 14px">点击或拖拽视频到此处</div>
+                  <div style="font-size: 12px">
+                    支持 mp4 / webm / mkv / mov 等
+                  </div>
                 </div>
-                <video id="ct-video" style="display:none;max-width:100%;max-height:100%;outline:none" tabindex="-1"></video>
-                <input type="file" id="ct-file-input" accept="video/*" style="display:none" onchange="ctLoadFile(this)">
+                <video
+                  id="ct-video"
+                  style="
+                    display: none;
+                    max-width: 100%;
+                    max-height: 100%;
+                    outline: none;
+                  "
+                  tabindex="-1"
+                ></video>
+                <input
+                  type="file"
+                  id="ct-file-input"
+                  accept="video/*"
+                  style="display: none"
+                  onchange="ctLoadFile(this)"
+                />
               </div>
 
               <!-- 进度条 -->
-              <div style="margin-top:10px">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span id="ct-time-label" style="font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;min-width:100px;white-space:nowrap">00:00:00.0 / --:--:--</span>
-                  <div id="ct-progress-wrap" style="position:relative;flex:1;height:6px;background:var(--border);border-radius:3px;cursor:pointer">
-                    <div id="ct-progress-fill" style="position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:3px;pointer-events:none"></div>
-                    <div id="ct-progress-thumb" style="position:absolute;top:50%;width:13px;height:13px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>
+              <div style="margin-top: 10px">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span
+                    id="ct-time-label"
+                    style="
+                      font-size: 12px;
+                      color: var(--text2);
+                      font-variant-numeric: tabular-nums;
+                      min-width: 100px;
+                      white-space: nowrap;
+                    "
+                    >00:00:00.0 / --:--:--</span
+                  >
+                  <div
+                    id="ct-progress-wrap"
+                    style="
+                      position: relative;
+                      flex: 1;
+                      height: 6px;
+                      background: var(--border);
+                      border-radius: 3px;
+                      cursor: pointer;
+                    "
+                  >
+                    <div
+                      id="ct-progress-fill"
+                      style="
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        bottom: 0;
+                        background: var(--accent);
+                        border-radius: 3px;
+                        pointer-events: none;
+                      "
+                    ></div>
+                    <div
+                      id="ct-progress-thumb"
+                      style="
+                        position: absolute;
+                        top: 50%;
+                        width: 13px;
+                        height: 13px;
+                        background: #fff;
+                        border-radius: 50%;
+                        transform: translate(-50%, -50%);
+                        pointer-events: none;
+                        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+                      "
+                    ></div>
                   </div>
                 </div>
 
                 <!-- 控制按钮 -->
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                  <button class="btn btn-outline btn-sm" onclick="ctSeek(-10)">⏮ 10s</button>
-                  <button class="btn btn-outline btn-sm" onclick="ctSeek(-1)">◀ 1s</button>
-                  <button class="btn btn-primary btn-sm" id="ct-play-btn" onclick="ctTogglePlay()">▶ 播放</button>
-                  <button class="btn btn-outline btn-sm" onclick="ctSeek(1)">1s ▶</button>
-                  <button class="btn btn-outline btn-sm" onclick="ctSeek(10)">10s ⏭</button>
-                  <select id="ct-speed" onchange="ctSetSpeed(this.value)" style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;cursor:pointer;color:var(--text)">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(-10)">
+                    ⏮ 10s
+                  </button>
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(-1)">
+                    ◀ 1s
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    id="ct-play-btn"
+                    onclick="ctTogglePlay()"
+                  >
+                    ▶ 播放
+                  </button>
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(1)">
+                    1s ▶
+                  </button>
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(10)">
+                    10s ⏭
+                  </button>
+                  <select
+                    id="ct-speed"
+                    onchange="ctSetSpeed(this.value)"
+                    style="
+                      background: var(--s2);
+                      border: 1px solid var(--border);
+                      border-radius: 8px;
+                      padding: 4px 8px;
+                      font-size: 12px;
+                      cursor: pointer;
+                      color: var(--text);
+                    "
+                  >
                     <option value="0.25">0.25×</option>
                     <option value="0.5">0.5×</option>
                     <option value="1" selected>1×</option>
                     <option value="1.5">1.5×</option>
                     <option value="2">2×</option>
                   </select>
-                  <button class="btn btn-sm" style="background:#d97706;color:#fff" onclick="ctAddMarker()">📍 打标记 (M)</button>
-                  <span style="font-size:11px;color:var(--text2);margin-left:auto">
-                    <kbd style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;font-size:11px">Space</kbd> 播放
-                    <kbd style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;font-size:11px">←→</kbd> ±0.1s
-                    <kbd style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;font-size:11px">Shift+←→</kbd> ±1s
+                  <button
+                    class="btn btn-sm"
+                    style="background: #d97706; color: #fff"
+                    onclick="ctAddMarker()"
+                  >
+                    📍 打标记 (M)
+                  </button>
+                  <span
+                    style="
+                      font-size: 11px;
+                      color: var(--text2);
+                      margin-left: auto;
+                    "
+                  >
+                    <kbd
+                      style="
+                        background: var(--s2);
+                        border: 1px solid var(--border);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-size: 11px;
+                      "
+                      >Space</kbd
+                    >
+                    播放
+                    <kbd
+                      style="
+                        background: var(--s2);
+                        border: 1px solid var(--border);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-size: 11px;
+                      "
+                      >←→</kbd
+                    >
+                    ±0.1s
+                    <kbd
+                      style="
+                        background: var(--s2);
+                        border: 1px solid var(--border);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-size: 11px;
+                      "
+                      >Shift+←→</kbd
+                    >
+                    ±1s
                   </span>
                 </div>
               </div>
             </div>
 
             <!-- 右：标记列表 -->
-            <div style="width:260px;display:flex;flex-direction:column;background:var(--white);border:1px solid var(--border);border-radius:10px;overflow:hidden">
-              <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
-                <span style="font-size:13px;font-weight:600;flex:1">时间标记</span>
-                <span id="ct-badge" style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 8px;font-size:11px">0</span>
-                <button class="btn btn-outline btn-sm" onclick="ctClearMarkers()">清空</button>
+            <div
+              style="
+                width: 260px;
+                display: flex;
+                flex-direction: column;
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                overflow: hidden;
+              "
+            >
+              <!-- 文案解析区 -->
+              <div style="border-bottom: 1px solid var(--border);">
+                <div
+                  onclick="ctToggleScript()"
+                  style="display:flex;align-items:center;justify-content:space-between;
+                         padding:10px 14px;cursor:pointer;user-select:none;font-size:13px;font-weight:600;"
+                >
+                  <span>📋 文案解析</span>
+                  <span id="ct-script-icon" style="font-size:11px;color:var(--text2);font-weight:400">▼</span>
+                </div>
+                <div id="ct-script-body" style="display:none;padding:0 10px 10px;flex-direction:column;gap:6px;">
+                  <textarea
+                    id="ct-script-input"
+                    style="width:100%;height:100px;background:var(--s2);border:1.5px solid var(--border);
+                           border-radius:8px;color:var(--text);font-size:12px;padding:8px;resize:vertical;
+                           outline:none;font-family:inherit;line-height:1.6;"
+                    placeholder="粘贴文案，如：
+第 1 片段：[00:00] – [01:04]
+第 2 片段：[01:04] – [02:10]
+支持 [MM:SS] / [HH:MM:SS]"
+                  ></textarea>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="btn btn-outline btn-sm" onclick="ctParseScript()" style="font-size:11px">📌 解析填入标记</button>
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('ct-script-input').value='';document.getElementById('ct-script-msg').textContent=''" style="font-size:11px">清空</button>
+                  </div>
+                  <div id="ct-script-msg" style="font-size:11px;"></div>
+                </div>
               </div>
-              <div id="ct-marker-list" style="flex:1;overflow-y:auto;padding:8px">
-                <div style="text-align:center;color:var(--text2);font-size:13px;margin-top:40px">加载视频后按 M 打标记</div>
+
+              <div
+                style="
+                  padding: 12px 14px;
+                  border-bottom: 1px solid var(--border);
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                "
+              >
+                <span style="font-size: 13px; font-weight: 600; flex: 1"
+                  >时间标记</span
+                >
+                <span
+                  id="ct-badge"
+                  style="
+                    background: var(--accent);
+                    color: #fff;
+                    border-radius: 10px;
+                    padding: 1px 8px;
+                    font-size: 11px;
+                  "
+                  >0</span
+                >
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="ctClearMarkers()"
+                >
+                  清空
+                </button>
               </div>
-              <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
-                <div style="font-size:12px;color:var(--text2)">输出目录（留空 = 与视频同目录）</div>
-                <input type="text" id="ct-output-dir" placeholder="自动" style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;color:var(--text)">
-                <div id="ct-cut-hint" style="font-size:11px;color:var(--text2)">至少打 2 个标记再切割</div>
-                <button class="btn btn-primary btn-sm" id="ct-cut-btn" onclick="ctStartCut()" disabled>✂️ 开始切割</button>
+              <div
+                id="ct-marker-list"
+                style="flex: 1; overflow-y: auto; padding: 8px"
+              >
+                <div
+                  style="
+                    text-align: center;
+                    color: var(--text2);
+                    font-size: 13px;
+                    margin-top: 40px;
+                  "
+                >
+                  加载视频后按 M 打标记
+                </div>
+              </div>
+              <div
+                style="
+                  padding: 10px 14px;
+                  border-top: 1px solid var(--border);
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                "
+              >
+                <div style="font-size: 12px; color: var(--text2)">
+                  输出目录（留空 = 与视频同目录）
+                </div>
+                <input
+                  type="text"
+                  id="ct-output-dir"
+                  placeholder="自动"
+                  style="
+                    background: var(--s2);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    padding: 6px 10px;
+                    font-size: 12px;
+                    outline: none;
+                    color: var(--text);
+                  "
+                />
+                <div
+                  id="ct-cut-hint"
+                  style="font-size: 11px; color: var(--text2)"
+                >
+                  至少打 2 个标记再切割
+                </div>
+                <button
+                  class="btn btn-primary btn-sm"
+                  id="ct-cut-btn"
+                  onclick="ctStartCut()"
+                  disabled
+                >
+                  ✂️ 开始切割
+                </button>
               </div>
             </div>
-
           </div>
 
           <!-- 进度弹窗 -->
-          <div id="ct-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
-            <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:24px;width:420px;max-height:80vh;overflow-y:auto">
-              <h3 id="ct-modal-title" style="font-size:15px;margin-bottom:12px">⚙️ 切割进行中...</h3>
-              <div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:14px;overflow:hidden">
-                <div id="ct-overall-fill" style="height:100%;background:var(--green);border-radius:2px;transition:width .3s;width:0%"></div>
+          <div
+            id="ct-overlay"
+            style="
+              display: none;
+              position: fixed;
+              inset: 0;
+              background: rgba(0, 0, 0, 0.5);
+              z-index: 200;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <div
+              style="
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 24px;
+                width: 420px;
+                max-height: 80vh;
+                overflow-y: auto;
+              "
+            >
+              <h3
+                id="ct-modal-title"
+                style="font-size: 15px; margin-bottom: 12px"
+              >
+                ⚙️ 切割进行中...
+              </h3>
+              <div
+                style="
+                  height: 4px;
+                  background: var(--border);
+                  border-radius: 2px;
+                  margin-bottom: 14px;
+                  overflow: hidden;
+                "
+              >
+                <div
+                  id="ct-overall-fill"
+                  style="
+                    height: 100%;
+                    background: var(--green);
+                    border-radius: 2px;
+                    transition: width 0.3s;
+                    width: 0%;
+                  "
+                ></div>
               </div>
-              <pre id="ct-modal-log" style="background:var(--s2);border-radius:8px;padding:10px;font-size:12px;color:var(--text3);max-height:280px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></pre>
-              <div style="margin-top:14px;text-align:right">
-                <button class="btn btn-outline btn-sm" onclick="document.getElementById('ct-overlay').style.display='none'">关闭</button>
+              <pre
+                id="ct-modal-log"
+                style="
+                  background: var(--s2);
+                  border-radius: 8px;
+                  padding: 10px;
+                  font-size: 12px;
+                  color: var(--text3);
+                  max-height: 280px;
+                  overflow-y: auto;
+                  white-space: pre-wrap;
+                  word-break: break-all;
+                "
+              ></pre>
+              <div style="margin-top: 14px; text-align: right">
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="
+                    document.getElementById('ct-overlay').style.display = 'none'
+                  "
+                >
+                  关闭
+                </button>
               </div>
             </div>
           </div>
@@ -1469,6 +1932,48 @@
             </div>
           </div>
 
+          <div class="card setting-section">
+            <div class="card-title">下载目录</div>
+            <p
+              style="
+                font-size: 12px;
+                color: var(--text2);
+                margin-bottom: 12px;
+                line-height: 1.75;
+              "
+            >
+              指定视频文件的保存位置。留空则使用程序目录下的
+              <code>downloads/</code> 文件夹。<br />
+              请输入绝对路径，例如 <code>D:\Videos</code> 或
+              <code>C:\Users\你的名字\Downloads</code>。
+            </p>
+            <div style="display: flex; gap: 8px; align-items: center">
+              <input
+                type="text"
+                id="dl-dir-input"
+                class="url-input"
+                style="height: 38px; font-size: 13px"
+                placeholder="留空使用默认目录（./downloads/）"
+              />
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="saveDlDir()"
+                style="height: 38px; white-space: nowrap"
+              >
+                保存
+              </button>
+            </div>
+            <div
+              id="dl-dir-status"
+              style="
+                margin-top: 8px;
+                font-size: 12px;
+                color: var(--text2);
+                display: none;
+              "
+            ></div>
+          </div>
+
           <div class="card">
             <div class="card-title">运行环境</div>
             <dl class="info-grid">
@@ -1478,8 +1983,8 @@
               <dd><code>./yt-dlp.exe</code></dd>
               <dt>ffmpeg</dt>
               <dd><code>./ffmpeg.exe</code></dd>
-              <dt>下载目录</dt>
-              <dd><code>./downloads/</code></dd>
+              <dt>当前下载目录</dt>
+              <dd><code id="info-dl-dir">加载中…</code></dd>
             </dl>
           </div>
         </div>
@@ -1508,7 +2013,10 @@
         if (page === "files") loadFiles();
         if (page === "settings") loadCookieStatus();
         if (page === "dewatermark") loadDwFiles();
-        if (page === "publish") { loadPublishStatus(); loadPubFiles(); }
+        if (page === "publish") {
+          loadPublishStatus();
+          loadPubFiles();
+        }
       }
 
       function toast(msg, type = "ok") {
@@ -1538,7 +2046,43 @@
             lbl.textContent = "Cookies 未配置";
           }
         } catch {}
+        // 同步加载下载目录设置
+        try {
+          const s = await api("GET", "/api/settings");
+          const defaultDir = s.download_dir || "";
+          const input = document.getElementById("dl-dir-input");
+          const infoEl = document.getElementById("info-dl-dir");
+          if (input) input.value = defaultDir;
+          if (infoEl) infoEl.textContent = defaultDir || "./downloads/";
+        } catch {}
       }
+
+      async function saveDlDir() {
+        const input = document.getElementById("dl-dir-input");
+        const statusEl = document.getElementById("dl-dir-status");
+        const val = (input.value || "").trim();
+        statusEl.style.display = "none";
+        try {
+          const res = await api("POST", "/api/settings", { download_dir: val });
+          if (res.error) {
+            statusEl.textContent = "❌ " + res.error;
+            statusEl.style.color = "var(--red)";
+          } else {
+            const saved = res.settings?.download_dir || "";
+            const infoEl = document.getElementById("info-dl-dir");
+            if (infoEl) infoEl.textContent = saved || "./downloads/";
+            input.value = saved;
+            statusEl.textContent = "✓ 已保存：" + (saved || "默认目录 ./downloads/");
+            statusEl.style.color = "var(--green)";
+            toast("下载目录已更新", "ok");
+          }
+        } catch (e) {
+          statusEl.textContent = "❌ 保存失败：" + e.message;
+          statusEl.style.color = "var(--red)";
+        }
+        statusEl.style.display = "block";
+      }
+
       loadCookieStatus();
 
       // Parse
@@ -1938,7 +2482,11 @@
 
         try {
           const d = await api("POST", "/api/crawl/start", { keyword, count });
-          if (d.error) { showCrawlErr(d.error); btn.disabled = false; return; }
+          if (d.error) {
+            showCrawlErr(d.error);
+            btn.disabled = false;
+            return;
+          }
           crawlPollTimer = setInterval(() => pollCrawl(d.task_id), 1200);
         } catch (e) {
           showCrawlErr("启动失败: " + e.message);
@@ -1950,9 +2498,14 @@
         try {
           const d = await api("GET", "/api/crawl/task/" + id);
           const logEl = document.getElementById("crawl-log");
-          if (d.logs) { logEl.textContent = d.logs.join("\n"); logEl.scrollTop = logEl.scrollHeight; }
-          document.getElementById("crawl-processed").textContent = d.processed || 0;
-          document.getElementById("crawl-skipped").textContent = d.skipped_wm || 0;
+          if (d.logs) {
+            logEl.textContent = d.logs.join("\n");
+            logEl.scrollTop = logEl.scrollHeight;
+          }
+          document.getElementById("crawl-processed").textContent =
+            d.processed || 0;
+          document.getElementById("crawl-skipped").textContent =
+            d.skipped_wm || 0;
 
           // 实时渲染结果卡片
           if (d.results && d.results.length) {
@@ -1977,40 +2530,44 @@
         const list = document.getElementById("crawl-result-list");
         const count = document.getElementById("crawl-result-count");
         wrap.style.display = "";
-        const noWm = results.filter(r => !r.has_watermark).length;
+        const noWm = results.filter((r) => !r.has_watermark).length;
         count.textContent = `共 ${results.length} 个，其中 ${noWm} 个无水印`;
-        list.innerHTML = results.map(r => {
-          const wmTag = r.has_watermark
-            ? `<span style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 7px;font-size:11px">⚠️ 有水印</span>`
-            : `<span style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:4px;padding:2px 7px;font-size:11px">✅ 无水印</span>`;
-          const dur = r.duration ? `${Math.floor(r.duration/60)}:${String(r.duration%60).padStart(2,'0')}` : '--';
-          const thumb = r.thumbnail
-            ? `<img src="${esc(r.thumbnail)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px 8px 0 0;display:block">`
-            : `<div style="width:100%;height:140px;background:var(--s2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px">🎬</div>`;
-          return `
-            <div style="background:var(--white);border:1.5px solid ${r.has_watermark ? '#fca5a5' : 'var(--border)'};border-radius:10px;overflow:hidden">
+        list.innerHTML = results
+          .map((r) => {
+            const wmTag = r.has_watermark
+              ? `<span style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 7px;font-size:11px">⚠️ 有水印</span>`
+              : `<span style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:4px;padding:2px 7px;font-size:11px">✅ 无水印</span>`;
+            const dur = r.duration
+              ? `${Math.floor(r.duration / 60)}:${String(r.duration % 60).padStart(2, "0")}`
+              : "--";
+            const thumb = r.thumbnail
+              ? `<img src="${esc(r.thumbnail)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px 8px 0 0;display:block">`
+              : `<div style="width:100%;height:140px;background:var(--s2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px">🎬</div>`;
+            return `
+            <div style="background:var(--white);border:1.5px solid ${r.has_watermark ? "#fca5a5" : "var(--border)"};border-radius:10px;overflow:hidden">
               ${thumb}
               <div style="padding:10px 12px">
                 <div style="font-size:13px;font-weight:500;line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(r.title)}</div>
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
                   ${wmTag}
                   <span style="font-size:11px;color:var(--text2)">⏱ ${dur}</span>
-                  ${r.uploader ? `<span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.uploader)}</span>` : ''}
+                  ${r.uploader ? `<span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.uploader)}</span>` : ""}
                 </div>
                 <div style="display:flex;gap:6px">
                   <a href="${esc(r.url)}" target="_blank" class="btn btn-outline btn-sm" style="flex:1;text-align:center;text-decoration:none;font-size:12px">🔗 打开</a>
-                  <button class="btn btn-sm btn-outline" style="font-size:12px" onclick="navigator.clipboard.writeText('${r.url.replace(/'/g,"\\'")}').then(()=>toast('已复制'))">📋 复制链接</button>
-                  ${!r.has_watermark ? `<button class="btn btn-primary btn-sm" style="font-size:12px" onclick="copyToDownload('${r.url.replace(/'/g,"\\'")}')">⬇ 去下载</button>` : ''}
+                  <button class="btn btn-sm btn-outline" style="font-size:12px" onclick="navigator.clipboard.writeText('${r.url.replace(/'/g, "\\'")}').then(()=>toast('已复制'))">📋 复制链接</button>
+                  ${!r.has_watermark ? `<button class="btn btn-primary btn-sm" style="font-size:12px" onclick="copyToDownload('${r.url.replace(/'/g, "\\'")}')">⬇ 去下载</button>` : ""}
                 </div>
               </div>
             </div>`;
-        }).join('');
+          })
+          .join("");
       }
 
       function copyToDownload(url) {
-        document.getElementById('url-input').value = url;
-        nav('download', document.querySelectorAll('.nav-item')[0]);
-        toast('链接已填入下载页');
+        document.getElementById("url-input").value = url;
+        nav("download", document.querySelectorAll(".nav-item")[0]);
+        toast("链接已填入下载页");
       }
 
       function showCrawlErr(msg) {
@@ -2022,33 +2579,38 @@
 
       async function loadCrawlHistCount() {
         try {
-          const d = await api('GET', '/api/crawl/history');
-          const el = document.getElementById('crawl-hist-count');
+          const d = await api("GET", "/api/crawl/history");
+          const el = document.getElementById("crawl-hist-count");
           if (el) el.textContent = `历史共 ${d.count} 条`;
         } catch {}
       }
 
       async function showCrawlHistory() {
-        const d = await api('GET', '/api/crawl/history');
-        const list = document.getElementById('crawl-hist-list');
+        const d = await api("GET", "/api/crawl/history");
+        const list = document.getElementById("crawl-hist-list");
         if (!d.items || !d.items.length) {
-          list.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">暂无历史记录</div>';
+          list.innerHTML =
+            '<div style="text-align:center;color:var(--text2);padding:20px">暂无历史记录</div>';
         } else {
-          list.innerHTML = d.items.map(item => `
+          list.innerHTML = d.items
+            .map(
+              (item) => `
             <div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
-              <span style="font-size:11px;${item.has_watermark ? 'color:#dc2626' : 'color:#16a34a'}">${item.has_watermark ? '⚠️' : '✅'}</span>
+              <span style="font-size:11px;${item.has_watermark ? "color:#dc2626" : "color:#16a34a"}">${item.has_watermark ? "⚠️" : "✅"}</span>
               <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.title)}">${esc(item.title)}</span>
-              <span style="font-size:11px;color:var(--text2);white-space:nowrap">${item.ts || ''}</span>
+              <span style="font-size:11px;color:var(--text2);white-space:nowrap">${item.ts || ""}</span>
               <a href="${esc(item.url)}" target="_blank" style="font-size:11px;color:var(--accent)">打开</a>
-            </div>`).join('');
+            </div>`,
+            )
+            .join("");
         }
-        document.getElementById('crawl-hist-overlay').style.display = 'flex';
+        document.getElementById("crawl-hist-overlay").style.display = "flex";
       }
 
       async function clearCrawlHistory() {
-        if (!confirm('确定清空所有历史记录？清空后下次抓取不再去重。')) return;
-        await api('POST', '/api/crawl/history/clear');
-        toast('历史记录已清空');
+        if (!confirm("确定清空所有历史记录？清空后下次抓取不再去重。")) return;
+        await api("POST", "/api/crawl/history/clear");
+        toast("历史记录已清空");
         loadCrawlHistCount();
       }
 
@@ -2060,38 +2622,55 @@
 
       async function loadPublishStatus() {
         try {
-          const d = await api('GET', '/api/publish/status');
-          const el = document.getElementById('platform-status');
-          const icons = {douyin:'🎵', bilibili:'📺', wechat:'💚', xiaohongshu:'📕'};
-          el.innerHTML = Object.entries(d).map(([key, info]) => `
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;border:1.5px solid ${info.logged_in ? 'var(--green)' : 'var(--border)'};border-radius:10px;text-align:center">
-              <div style="font-size:22px">${icons[key]||'📱'}</div>
+          const d = await api("GET", "/api/publish/status");
+          const el = document.getElementById("platform-status");
+          const icons = {
+            douyin: "🎵",
+            bilibili: "📺",
+            wechat: "💚",
+            xiaohongshu: "📕",
+          };
+          el.innerHTML = Object.entries(d)
+            .map(
+              ([key, info]) => `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;border:1.5px solid ${info.logged_in ? "var(--green)" : "var(--border)"};border-radius:10px;text-align:center">
+              <div style="font-size:22px">${icons[key] || "📱"}</div>
               <div style="font-size:13px;font-weight:600">${info.name}</div>
-              ${info.logged_in
-                ? `<div style="color:var(--green);font-size:12px">✅ 已登录</div>
+              ${
+                info.logged_in
+                  ? `<div style="color:var(--green);font-size:12px">✅ 已登录</div>
                    <button class="btn btn-outline btn-sm" style="font-size:11px;height:24px;padding:0 8px;margin-top:2px" onclick="loginPlatform('${key}')">重新登录</button>`
-                : `<button class="btn btn-outline btn-sm" style="font-size:11px;height:28px;padding:0 10px" onclick="loginPlatform('${key}')">点击登录</button>`}
-            </div>`).join('');
-        } catch(e) {
-          document.getElementById('platform-status').innerHTML =
+                  : `<button class="btn btn-outline btn-sm" style="font-size:11px;height:28px;padding:0 10px" onclick="loginPlatform('${key}')">点击登录</button>`
+              }
+            </div>`,
+            )
+            .join("");
+        } catch (e) {
+          document.getElementById("platform-status").innerHTML =
             '<div style="grid-column:span 4;text-align:center;color:var(--text2);padding:16px;font-size:13px">加载失败，请刷新重试</div>';
         }
       }
 
       async function loadPubFiles() {
-        const sel = document.getElementById('pub-file');
+        const sel = document.getElementById("pub-file");
         sel.innerHTML = '<option value="">加载中...</option>';
         try {
-          const d = await api('GET', '/api/publish/files');
+          const d = await api("GET", "/api/publish/files");
           const files = d.files || [];
           if (!files.length) {
             sel.innerHTML = '<option value="">downloads 目录暂无视频</option>';
             return;
           }
-          sel.innerHTML = '<option value="">-- 请选择视频 --</option>' +
-            files.map(f => `<option value="${esc(f.full)}">${esc(f.rel)} (${fmtSize(f.size)})</option>`).join('');
-        } catch(e) {
-          console.error('loadPubFiles error:', e);
+          sel.innerHTML =
+            '<option value="">-- 请选择视频 --</option>' +
+            files
+              .map(
+                (f) =>
+                  `<option value="${esc(f.full)}">${esc(f.rel)} (${fmtSize(f.size)})</option>`,
+              )
+              .join("");
+        } catch (e) {
+          console.error("loadPubFiles error:", e);
           sel.innerHTML = '<option value="">加载失败</option>';
         }
       }
@@ -2099,73 +2678,119 @@
       async function loginPlatform(platform) {
         toast(`正在打开登录页面...`);
         try {
-          const d = await api('POST', '/api/publish/login', { platform });
-          if (d.error) { toast(d.error, 'err'); return; }
+          const d = await api("POST", "/api/publish/login", { platform });
+          if (d.error) {
+            toast(d.error, "err");
+            return;
+          }
           const timer = setInterval(async () => {
-            const t = await api('GET', '/api/publish/task/' + d.task_id);
-            if (t.status === 'done') { clearInterval(timer); toast('✅ 登录成功'); loadPublishStatus(); }
-            else if (t.status === 'error') { clearInterval(timer); toast('登录失败: ' + t.error, 'err'); }
+            const t = await api("GET", "/api/publish/task/" + d.task_id);
+            if (t.status === "done") {
+              clearInterval(timer);
+              toast("✅ 登录成功");
+              loadPublishStatus();
+            } else if (t.status === "error") {
+              clearInterval(timer);
+              toast("登录失败: " + t.error, "err");
+            }
           }, 2000);
-        } catch(e) { toast('失败: ' + e.message, 'err'); }
+        } catch (e) {
+          toast("失败: " + e.message, "err");
+        }
       }
 
       async function startPublish() {
-        const file  = document.getElementById('pub-file').value;
-        const title = document.getElementById('pub-title').value.trim();
-        const desc  = document.getElementById('pub-desc').value.trim();
-        const tagsRaw = document.getElementById('pub-tags').value.trim();
-        const tags  = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
-        const tid   = document.getElementById('pub-tid').value;
-        const platforms = ['douyin','bilibili','wechat','xiaohongshu']
-          .filter(p => document.getElementById('plat-' + p)?.checked);
+        const file = document.getElementById("pub-file").value;
+        const title = document.getElementById("pub-title").value.trim();
+        const desc = document.getElementById("pub-desc").value.trim();
+        const tagsRaw = document.getElementById("pub-tags").value.trim();
+        const tags = tagsRaw
+          ? tagsRaw
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [];
+        const tid = document.getElementById("pub-tid").value;
+        const platforms = [
+          "douyin",
+          "bilibili",
+          "wechat",
+          "xiaohongshu",
+        ].filter((p) => document.getElementById("plat-" + p)?.checked);
 
-        if (!file)  return toast('请选择视频文件', 'err');
-        if (!title) return toast('请填写标题', 'err');
-        if (!platforms.length) return toast('请至少选择一个平台', 'err');
+        if (!file) return toast("请选择视频文件", "err");
+        if (!title) return toast("请填写标题", "err");
+        if (!platforms.length) return toast("请至少选择一个平台", "err");
 
-        const btn = document.getElementById('pub-btn');
+        const btn = document.getElementById("pub-btn");
         btn.disabled = true;
-        document.getElementById('pub-log').textContent = '';
-        document.getElementById('pub-result').style.display = 'none';
-        document.getElementById('pub-error').style.display  = 'none';
-        document.getElementById('pub-progress-card').style.display = '';
+        document.getElementById("pub-log").textContent = "";
+        document.getElementById("pub-result").style.display = "none";
+        document.getElementById("pub-error").style.display = "none";
+        document.getElementById("pub-progress-card").style.display = "";
 
         try {
-          const d = await api('POST', '/api/publish/start', { filename: file, title, desc, tags, platforms, tid });
-          if (d.error) { showPubErr(d.error); btn.disabled = false; return; }
+          const d = await api("POST", "/api/publish/start", {
+            filename: file,
+            title,
+            desc,
+            tags,
+            platforms,
+            tid,
+          });
+          if (d.error) {
+            showPubErr(d.error);
+            btn.disabled = false;
+            return;
+          }
           pubPollTimer = setInterval(() => pollPublish(d.task_id), 1500);
-        } catch(e) { showPubErr('启动失败: ' + e.message); btn.disabled = false; }
+        } catch (e) {
+          showPubErr("启动失败: " + e.message);
+          btn.disabled = false;
+        }
       }
 
       async function pollPublish(id) {
         try {
-          const d = await api('GET', '/api/publish/task/' + id);
-          const log = document.getElementById('pub-log');
-          if (d.logs) { log.textContent = d.logs.join('\n'); log.scrollTop = log.scrollHeight; }
-          if (d.status === 'done') {
+          const d = await api("GET", "/api/publish/task/" + id);
+          const log = document.getElementById("pub-log");
+          if (d.logs) {
+            log.textContent = d.logs.join("\n");
+            log.scrollTop = log.scrollHeight;
+          }
+          if (d.status === "done") {
             clearInterval(pubPollTimer);
-            document.getElementById('pub-btn').disabled = false;
-            const res = document.getElementById('pub-result');
-            res.style.display = '';
+            document.getElementById("pub-btn").disabled = false;
+            const res = document.getElementById("pub-result");
+            res.style.display = "";
             const results = d.results || {};
             const lines = Object.entries(results).map(([k, v]) => {
-              const name = {douyin:'抖音',bilibili:'B站',wechat:'视频号',xiaohongshu:'小红书'}[k]||k;
-              return v.success ? `✅ ${name} 发布成功` : `❌ ${name} 失败: ${v.error}`;
+              const name =
+                {
+                  douyin: "抖音",
+                  bilibili: "B站",
+                  wechat: "视频号",
+                  xiaohongshu: "小红书",
+                }[k] || k;
+              return v.success
+                ? `✅ ${name} 发布成功`
+                : `❌ ${name} 失败: ${v.error}`;
             });
-            res.innerHTML = lines.join('<br>') || '完成';
-            toast('发布完成');
-          } else if (d.status === 'error') {
+            res.innerHTML = lines.join("<br>") || "完成";
+            toast("发布完成");
+          } else if (d.status === "error") {
             clearInterval(pubPollTimer);
-            document.getElementById('pub-btn').disabled = false;
-            showPubErr(d.error || '未知错误');
+            document.getElementById("pub-btn").disabled = false;
+            showPubErr(d.error || "未知错误");
           }
         } catch {}
       }
 
       function showPubErr(msg) {
-        const el = document.getElementById('pub-error');
-        el.style.display = ''; el.textContent = '❌ ' + msg;
-        toast('发布失败', 'err');
+        const el = document.getElementById("pub-error");
+        el.style.display = "";
+        el.textContent = "❌ " + msg;
+        toast("发布失败", "err");
       }
 
       // ── Dewatermark ──
@@ -2561,15 +3186,45 @@
 
       // ── Pipeline ──
       let pipeTaskId = null,
-        pipePollTimer = null;
+        pipePollTimer = null,
+        pipeSegments = null,   // null = 无文案模式；array = 切割模式
+        pipeCutMode  = false;
+
+      // 步骤定义
+      const PIPE_STEPS_NORMAL = [
+        { label: '下载' }, { label: '识别翻译' }, { label: '烧录字幕' }, { label: '完成' }
+      ];
+      const PIPE_STEPS_CUT = [
+        { label: '下载' }, { label: '切割' }, { label: '识别翻译' }, { label: '烧录字幕' }, { label: '完成' }
+      ];
 
       function pipeStep(step, state) {
-        // state: 'active' | 'done' | 'err'
         const dot = document.getElementById("pd-" + step);
+        if (!dot) return;
         dot.className = "ps-dot " + state;
-        if (state === "done" && step < 4) {
-          document.getElementById("pl-" + step).classList.add("done");
+        if (state === "done") {
+          const line = document.getElementById("pl-" + step);
+          if (line) line.classList.add("done");
         }
+      }
+
+      function _buildStepIndicator(steps) {
+        const row = document.getElementById("pipe-steps-row");
+        row.innerHTML = "";
+        steps.forEach((s, i) => {
+          const n = i + 1;
+          const stepEl = document.createElement("div");
+          stepEl.className = "pipe-step";
+          stepEl.id = "ps-" + n;
+          stepEl.innerHTML = `<div class="ps-dot" id="pd-${n}">${n}</div><div class="ps-label">${s.label}</div>`;
+          row.appendChild(stepEl);
+          if (i < steps.length - 1) {
+            const line = document.createElement("div");
+            line.className = "ps-line";
+            line.id = "pl-" + n;
+            row.appendChild(line);
+          }
+        });
       }
 
       function pipeLog(msg) {
@@ -2578,6 +3233,52 @@
         log.scrollTop = log.scrollHeight;
       }
 
+      // ── 文案解析 ─────────────────────────────────
+      function togglePipeScript() {
+        const body = document.getElementById("pipe-script-body");
+        const icon = document.getElementById("pipe-script-icon");
+        const open = body.style.display === "none";
+        body.style.display = open ? "" : "none";
+        icon.textContent = open ? "▲ 收起" : "▼ 展开";
+      }
+
+      function clearPipeScript() {
+        document.getElementById("pipe-script-input").value = "";
+        document.getElementById("pipe-script-msg").textContent = "";
+        pipeSegments = null;
+      }
+
+      function parsePipeScript() {
+        const text = document.getElementById("pipe-script-input").value;
+        const msgEl = document.getElementById("pipe-script-msg");
+        const timeRe = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+        const found = [];
+        let m;
+        while ((m = timeRe.exec(text)) !== null) found.push(m[1]);
+
+        if (found.length < 2) {
+          msgEl.style.color = "var(--red)";
+          msgEl.textContent = found.length === 0
+            ? "❌ 未找到时间码，格式应为 [MM:SS]"
+            : "❌ 至少需要 2 个时间码才能生成片段";
+          pipeSegments = null;
+          return;
+        }
+
+        function toSec(str) {
+          const p = str.split(":").map(Number);
+          return p.length === 3 ? p[0]*3600+p[1]*60+p[2] : p[0]*60+p[1];
+        }
+        const times = [...new Set(found.map(toSec))].sort((a, b) => a - b);
+        pipeSegments = [];
+        for (let i = 0; i < times.length - 1; i++) {
+          pipeSegments.push({ start: times[i], end: times[i + 1] });
+        }
+        msgEl.style.color = "var(--green)";
+        msgEl.textContent = `✓ 解析到 ${pipeSegments.length} 段，启动后将切割`;
+      }
+
+      // ── 启动流水线 ───────────────────────────────
       async function startPipeline(force = false) {
         const url = document.getElementById("pipe-url").value.trim();
         if (!url) return toast("请输入链接", "err");
@@ -2585,62 +3286,65 @@
         const btn = document.getElementById("pipe-btn");
         btn.disabled = true;
 
-        // 先检查是否下载过（force=false 时）
+        // 如果文案框有内容但未解析，自动解析一次
+        const scriptText = document.getElementById("pipe-script-input").value.trim();
+        if (scriptText && !pipeSegments) parsePipeScript();
+
+        const payload = { url, force: false, segments: pipeSegments || null };
+
         if (!force) {
           try {
-            const chk = await api("POST", "/api/pipeline/start", { url, force: false });
+            const chk = await api("POST", "/api/pipeline/start", payload);
             if (chk.already_downloaded) {
               btn.disabled = false;
               const yes = confirm(
                 `⚠️ 该视频已于 ${chk.ts} 下载过\n\n` +
-                `文件：${chk.title}\n\n` +
-                `是否重新下载？`
+                  `文件：${chk.title}\n\n` +
+                  `是否重新下载？`,
               );
               if (!yes) return;
-              // 用户确认，强制重新下载
               return startPipeline(true);
             }
-            // 正常启动（后端已创建 task）
             if (chk.task_id) {
-              _launchPipeline(url, chk.task_id, btn);
+              _launchPipeline(url, chk.task_id, btn, !!pipeSegments);
               return;
             }
             if (chk.error) { showPipeErr(chk.error); btn.disabled = false; return; }
-          } catch(e) {
+          } catch (e) {
             showPipeErr("启动失败: " + e.message);
             btn.disabled = false;
             return;
           }
         }
 
-        // force=true：重新提交
         try {
-          const d = await api("POST", "/api/pipeline/start", { url, force: true });
+          const d = await api("POST", "/api/pipeline/start",
+            { url, force: true, segments: pipeSegments || null });
           if (d.error) { showPipeErr(d.error); btn.disabled = false; return; }
-          if (d.task_id) _launchPipeline(url, d.task_id, btn);
-        } catch(e) {
+          if (d.task_id) _launchPipeline(url, d.task_id, btn, !!pipeSegments);
+        } catch (e) {
           showPipeErr("启动失败: " + e.message);
           btn.disabled = false;
         }
       }
 
-      function _launchPipeline(url, taskId, btn) {
+      function _launchPipeline(url, taskId, btn, cutMode) {
+        pipeCutMode = cutMode;
+        const steps = cutMode ? PIPE_STEPS_CUT : PIPE_STEPS_NORMAL;
+        const total  = steps.length;
+
+        // 重建步骤指示器
+        _buildStepIndicator(steps);
+
         // reset UI
         document.getElementById("pipe-log").textContent = "";
         document.getElementById("pipe-result").style.display = "none";
         document.getElementById("pipe-error").style.display = "none";
-        [1, 2, 3, 4].forEach((i) => {
-          document.getElementById("pd-" + i).className = "ps-dot";
-        });
-        [1, 2, 3].forEach((i) => {
-          document.getElementById("pl-" + i).classList.remove("done");
-        });
         document.getElementById("pipe-progress-card").style.display = "";
 
-        pipeLog("🚀 启动流水线...");
+        pipeLog("🚀 启动流水线" + (cutMode ? "（切割模式，共 " + (pipeSegments||[]).length + " 段）" : "") + "...");
         pipeLog("链接: " + url);
         pipeTaskId = taskId;
-        pipeLog("任务ID: " + taskId);
         pipePollTimer = setInterval(() => pollPipeline(taskId), 1000);
       }
 
@@ -2649,31 +3353,33 @@
           const d = await api("GET", "/api/pipeline/task/" + id);
           const log = document.getElementById("pipe-log");
 
-          // 渲染新日志
           if (d.logs && d.logs.length) {
             log.textContent = d.logs.join("\n");
             log.scrollTop = log.scrollHeight;
           }
 
-          // 更新步骤状态
+          // 更新步骤状态（兼容 4 步和 5 步）
           const s = d.step || 0;
-          if (s >= 1) pipeStep(1, s > 1 ? "done" : "active");
-          if (s >= 2) pipeStep(2, s > 2 ? "done" : "active");
-          if (s >= 3) pipeStep(3, s > 3 ? "done" : "active");
-          if (s >= 4) pipeStep(4, "done");
+          const total = d.cut_mode ? 5 : 4;
+          for (let i = 1; i <= total; i++) {
+            if (s >= i) pipeStep(i, s > i ? "done" : (i === total ? "done" : "active"));
+          }
 
           if (d.status === "done") {
             clearInterval(pipePollTimer);
             document.getElementById("pipe-btn").disabled = false;
             const res = document.getElementById("pipe-result");
             res.style.display = "";
-            res.innerHTML = `✅ 全部完成！<br>📁 输出目录：<code>${esc(d.output_dir || "")}</code><br>🎬 视频：<code>${esc(d.output_file || "")}</code>`;
+            const files = d.output_files && d.output_files.length
+              ? d.output_files
+              : (d.output_file ? [d.output_file] : []);
+            const fileLines = files.map(f => `🎬 <code>${esc(f)}</code>`).join("<br>");
+            res.innerHTML = `✅ 全部完成！<br>📁 输出目录：<code>${esc(d.output_dir || "")}</code><br>${fileLines}`;
             toast("✓ 流水线完成");
           } else if (d.status === "error") {
             clearInterval(pipePollTimer);
             document.getElementById("pipe-btn").disabled = false;
             showPipeErr(d.error || "未知错误");
-            // 标红当前步骤
             if (d.step) pipeStep(d.step, "err");
           }
         } catch {}
@@ -2689,38 +3395,77 @@
       // ═══════════════════════════════════════
       // 视频切割模块
       // ═══════════════════════════════════════
-      (function() {
-        const vid    = () => document.getElementById('ct-video');
-        const wrap   = () => document.getElementById('ct-progress-wrap');
-        const fill   = () => document.getElementById('ct-progress-fill');
-        const thumb  = () => document.getElementById('ct-progress-thumb');
-        const label  = () => document.getElementById('ct-time-label');
-        const playBtn = () => document.getElementById('ct-play-btn');
+      (function () {
+        const vid = () => document.getElementById("ct-video");
+        const wrap = () => document.getElementById("ct-progress-wrap");
+        const fill = () => document.getElementById("ct-progress-fill");
+        const thumb = () => document.getElementById("ct-progress-thumb");
+        const label = () => document.getElementById("ct-time-label");
+        const playBtn = () => document.getElementById("ct-play-btn");
 
         let ctMarkers = [];
-        let ctFilePath = '';
+        let ctFilePath = "";
         let ctDragging = false;
         let ctLogLines = 0;
+        let ctScriptOpen = false;
+
+        // ── 文案解析 ─────────────────────────────────
+        window.ctToggleScript = function () {
+          ctScriptOpen = !ctScriptOpen;
+          document.getElementById("ct-script-body").style.display = ctScriptOpen ? "flex" : "none";
+          document.getElementById("ct-script-icon").textContent = ctScriptOpen ? "▲" : "▼";
+        };
+
+        window.ctParseScript = function () {
+          const text = document.getElementById("ct-script-input").value;
+          const msgEl = document.getElementById("ct-script-msg");
+          const timeRe = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+          const found = [];
+          let m;
+          while ((m = timeRe.exec(text)) !== null) found.push(m[1]);
+
+          if (found.length < 2) {
+            msgEl.style.color = "var(--red)";
+            msgEl.textContent = found.length === 0
+              ? "❌ 未找到时间码，格式应为 [MM:SS]"
+              : "❌ 至少需要 2 个时间码";
+            return;
+          }
+
+          function toSec(str) {
+            const p = str.split(":").map(Number);
+            return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+          }
+          const times = [...new Set(found.map(toSec))].sort((a, b) => a - b);
+          ctMarkers = times.map((t) => ({ time: t }));
+          ctRenderMarkers();
+          ctRenderPins();
+          msgEl.style.color = "var(--green)";
+          msgEl.textContent = `✓ 解析到 ${times.length} 个时间点，生成 ${times.length - 1} 段`;
+        };
 
         // 格式化时间
         function ctFmt(s, d = 1) {
-          if (!s && s !== 0 || isNaN(s)) return '--:--:--';
+          if ((!s && s !== 0) || isNaN(s)) return "--:--:--";
           const h = Math.floor(s / 3600);
           const m = Math.floor((s % 3600) / 60);
           const sec = (s % 60).toFixed(d);
-          const ss = parseFloat(sec) < 10 ? '0' + sec : sec;
-          return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${ss}`;
+          const ss = parseFloat(sec) < 10 ? "0" + sec : sec;
+          return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${ss}`;
         }
         function ctParseTime(str) {
           str = str.trim();
           if (/^\d+(\.\d+)?$/.test(str)) return parseFloat(str);
-          const p = str.split(':');
-          if (p.length === 3) return parseFloat(p[0])*3600 + parseFloat(p[1])*60 + parseFloat(p[2]);
+          const p = str.split(":");
+          if (p.length === 3)
+            return (
+              parseFloat(p[0]) * 3600 + parseFloat(p[1]) * 60 + parseFloat(p[2])
+            );
           return NaN;
         }
 
         // 加载文件
-        window.ctLoadFile = async function(input) {
+        window.ctLoadFile = async function (input) {
           const file = input.files[0];
           if (!file) return;
           await ctLoad(file);
@@ -2729,90 +3474,137 @@
         async function ctLoad(file) {
           // 上传到后端获取真实路径
           const fd = new FormData();
-          fd.append('file', file);
+          fd.append("file", file);
           try {
-            const res = await fetch('/api/cutter/open', { method: 'POST', body: fd });
+            const res = await fetch("/api/cutter/open", {
+              method: "POST",
+              body: fd,
+            });
             const data = await res.json();
             if (data.path) ctFilePath = data.path;
-          } catch(e) { console.warn(e); }
+          } catch (e) {
+            console.warn(e);
+          }
 
           const v = vid();
           if (v._blobUrl) URL.revokeObjectURL(v._blobUrl);
           v._blobUrl = URL.createObjectURL(file);
           v.src = v._blobUrl;
           v.load();
-          document.getElementById('ct-drop-hint').style.display = 'none';
-          v.style.display = 'block';
-          document.getElementById('ct-video-wrap').style.cursor = 'default';
-          document.getElementById('ct-video-wrap').onclick = null;
+          document.getElementById("ct-drop-hint").style.display = "none";
+          v.style.display = "block";
+          document.getElementById("ct-video-wrap").style.cursor = "default";
+          document.getElementById("ct-video-wrap").onclick = null;
           ctMarkers = [];
           ctRenderMarkers();
-          document.getElementById('ct-cut-btn').disabled = false;
+          document.getElementById("ct-cut-btn").disabled = false;
         }
 
         // 拖拽
-        const vw = document.getElementById('ct-video-wrap');
+        const vw = document.getElementById("ct-video-wrap");
         if (vw) {
-          vw.addEventListener('dragover', e => { e.preventDefault(); vw.style.outline = '2px dashed var(--accent)'; });
-          vw.addEventListener('dragleave', () => { vw.style.outline = ''; });
-          vw.addEventListener('drop', e => {
-            e.preventDefault(); vw.style.outline = '';
+          vw.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            vw.style.outline = "2px dashed var(--accent)";
+          });
+          vw.addEventListener("dragleave", () => {
+            vw.style.outline = "";
+          });
+          vw.addEventListener("drop", (e) => {
+            e.preventDefault();
+            vw.style.outline = "";
             const f = e.dataTransfer.files[0];
             if (f) ctLoad(f);
           });
         }
 
         // 播放控制
-        window.ctTogglePlay = function() {
+        window.ctTogglePlay = function () {
           const v = vid();
           if (!v.src) return;
-          if (v.paused) { v.play(); playBtn().textContent = '⏸ 暂停'; }
-          else          { v.pause(); playBtn().textContent = '▶ 播放'; }
+          if (v.paused) {
+            v.play();
+            playBtn().textContent = "⏸ 暂停";
+          } else {
+            v.pause();
+            playBtn().textContent = "▶ 播放";
+          }
         };
-        window.ctSeek = function(delta) {
+        window.ctSeek = function (delta) {
           const v = vid();
           if (!v.src) return;
-          v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + delta));
+          v.currentTime = Math.max(
+            0,
+            Math.min(v.duration || 0, v.currentTime + delta),
+          );
         };
-        window.ctSetSpeed = function(val) { vid().playbackRate = parseFloat(val); };
+        window.ctSetSpeed = function (val) {
+          vid().playbackRate = parseFloat(val);
+        };
 
         // 键盘（只在切割页激活时生效）
-        document.addEventListener('keydown', e => {
-          if (!document.getElementById('page-cutter').classList.contains('active')) return;
-          if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
-          if (e.key === ' ')          { e.preventDefault(); ctTogglePlay(); }
-          else if (e.key === 'ArrowLeft')  { e.preventDefault(); ctSeek(e.shiftKey ? -1 : -0.1); }
-          else if (e.key === 'ArrowRight') { e.preventDefault(); ctSeek(e.shiftKey ? 1 :  0.1); }
-          else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); ctAddMarker(); }
+        document.addEventListener("keydown", (e) => {
+          if (
+            !document.getElementById("page-cutter").classList.contains("active")
+          )
+            return;
+          if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName))
+            return;
+          if (e.key === " ") {
+            e.preventDefault();
+            ctTogglePlay();
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            ctSeek(e.shiftKey ? -1 : -0.1);
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            ctSeek(e.shiftKey ? 1 : 0.1);
+          } else if (e.key === "m" || e.key === "M") {
+            e.preventDefault();
+            ctAddMarker();
+          }
         });
 
         // 进度条更新
-        const v = document.getElementById('ct-video');
+        const v = document.getElementById("ct-video");
         if (v) {
-          v.addEventListener('timeupdate', () => {
-            const pct = v.duration ? v.currentTime / v.duration * 100 : 0;
-            fill().style.width = pct + '%';
-            thumb().style.left = pct + '%';
-            label().textContent = ctFmt(v.currentTime, 1) + ' / ' + ctFmt(v.duration, 1);
+          v.addEventListener("timeupdate", () => {
+            const pct = v.duration ? (v.currentTime / v.duration) * 100 : 0;
+            fill().style.width = pct + "%";
+            thumb().style.left = pct + "%";
+            label().textContent =
+              ctFmt(v.currentTime, 1) + " / " + ctFmt(v.duration, 1);
           });
-          v.addEventListener('ended', () => { playBtn().textContent = '▶ 播放'; });
-          v.addEventListener('loadedmetadata', ctRenderPins);
+          v.addEventListener("ended", () => {
+            playBtn().textContent = "▶ 播放";
+          });
+          v.addEventListener("loadedmetadata", ctRenderPins);
         }
 
         // 进度条拖拽
-        const pw = document.getElementById('ct-progress-wrap');
+        const pw = document.getElementById("ct-progress-wrap");
         if (pw) {
           function posToTime(e) {
             const r = pw.getBoundingClientRect();
-            return Math.max(0, Math.min(e.clientX - r.left, r.width)) / r.width * (vid().duration || 0);
+            return (
+              (Math.max(0, Math.min(e.clientX - r.left, r.width)) / r.width) *
+              (vid().duration || 0)
+            );
           }
-          pw.addEventListener('mousedown', e => { ctDragging = true; vid().currentTime = posToTime(e); });
-          document.addEventListener('mousemove', e => { if (ctDragging) vid().currentTime = posToTime(e); });
-          document.addEventListener('mouseup', () => { ctDragging = false; });
+          pw.addEventListener("mousedown", (e) => {
+            ctDragging = true;
+            vid().currentTime = posToTime(e);
+          });
+          document.addEventListener("mousemove", (e) => {
+            if (ctDragging) vid().currentTime = posToTime(e);
+          });
+          document.addEventListener("mouseup", () => {
+            ctDragging = false;
+          });
         }
 
         // 标记
-        window.ctAddMarker = function() {
+        window.ctAddMarker = function () {
           const v = vid();
           if (!v.src) return;
           ctMarkers.push({ time: v.currentTime });
@@ -2820,20 +3612,20 @@
           ctRenderMarkers();
           ctRenderPins();
         };
-        window.ctClearMarkers = function() {
+        window.ctClearMarkers = function () {
           ctMarkers = [];
           ctRenderMarkers();
           ctRenderPins();
         };
-        window.ctDeleteMarker = function(idx) {
+        window.ctDeleteMarker = function (idx) {
           ctMarkers.splice(idx, 1);
           ctRenderMarkers();
           ctRenderPins();
         };
-        window.ctJumpMarker = function(idx) {
+        window.ctJumpMarker = function (idx) {
           vid().currentTime = ctMarkers[idx].time;
         };
-        window.ctUpdateMarkerTime = function(idx, val) {
+        window.ctUpdateMarkerTime = function (idx, val) {
           const t = ctParseTime(val);
           if (!isNaN(t)) {
             ctMarkers[idx].time = Math.max(0, t);
@@ -2844,24 +3636,27 @@
         };
 
         function ctRenderMarkers() {
-          const list = document.getElementById('ct-marker-list');
-          const badge = document.getElementById('ct-badge');
+          const list = document.getElementById("ct-marker-list");
+          const badge = document.getElementById("ct-badge");
           badge.textContent = ctMarkers.length;
-          const hint = document.getElementById('ct-cut-hint');
+          const hint = document.getElementById("ct-cut-hint");
           if (ctMarkers.length >= 2) {
             hint.textContent = `将切割成 ${ctMarkers.length - 1} 段`;
-            hint.style.color = 'var(--green)';
+            hint.style.color = "var(--green)";
           } else {
-            hint.textContent = '至少打 2 个标记再切割';
-            hint.style.color = 'var(--text2)';
+            hint.textContent = "至少打 2 个标记再切割";
+            hint.style.color = "var(--text2)";
           }
           if (!ctMarkers.length) {
-            list.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;margin-top:40px">加载视频后按 M 打标记</div>';
+            list.innerHTML =
+              '<div style="text-align:center;color:var(--text2);font-size:13px;margin-top:40px">加载视频后按 M 打标记</div>';
             return;
           }
-          list.innerHTML = ctMarkers.map((m, i) => `
+          list.innerHTML = ctMarkers
+            .map(
+              (m, i) => `
             <div style="display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;margin-bottom:4px;background:var(--s2);cursor:pointer" onclick="ctJumpMarker(${i})">
-              <div style="width:20px;height:20px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${i+1}</div>
+              <div style="width:20px;height:20px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${i + 1}</div>
               <input style="flex:1;background:transparent;border:none;color:var(--text);font-size:13px;font-variant-numeric:tabular-nums;outline:none;cursor:pointer"
                 value="${ctFmt(m.time, 3)}"
                 onclick="event.stopPropagation()"
@@ -2869,72 +3664,93 @@
                 onkeydown="if(event.key==='Enter')this.blur()">
               <button style="background:none;border:none;color:var(--text2);cursor:pointer;padding:2px 4px;border-radius:4px;font-size:13px" onclick="event.stopPropagation();ctDeleteMarker(${i})">✕</button>
             </div>
-          `).join('');
+          `,
+            )
+            .join("");
         }
 
         function ctRenderPins() {
-          const pw = document.getElementById('ct-progress-wrap');
+          const pw = document.getElementById("ct-progress-wrap");
           if (!pw) return;
-          pw.querySelectorAll('.ct-pin').forEach(p => p.remove());
+          pw.querySelectorAll(".ct-pin").forEach((p) => p.remove());
           const dur = vid().duration;
           if (!dur) return;
-          ctMarkers.forEach(m => {
-            const pin = document.createElement('div');
-            pin.className = 'ct-pin';
-            pin.style.cssText = `position:absolute;top:-4px;width:2px;height:14px;background:#f59e0b;border-radius:1px;transform:translateX(-50%);pointer-events:none;left:${m.time/dur*100}%`;
+          ctMarkers.forEach((m) => {
+            const pin = document.createElement("div");
+            pin.className = "ct-pin";
+            pin.style.cssText = `position:absolute;top:-4px;width:2px;height:14px;background:#f59e0b;border-radius:1px;transform:translateX(-50%);pointer-events:none;left:${(m.time / dur) * 100}%`;
             pw.appendChild(pin);
           });
         }
 
         // 切割
-        window.ctStartCut = async function() {
-          if (ctMarkers.length < 2) { alert('至少需要 2 个标记'); return; }
-          if (!ctFilePath) { alert('无法获取文件路径，请重新加载视频'); return; }
+        window.ctStartCut = async function () {
+          if (ctMarkers.length < 2) {
+            alert("至少需要 2 个标记");
+            return;
+          }
+          if (!ctFilePath) {
+            alert("无法获取文件路径，请重新加载视频");
+            return;
+          }
           const segments = [];
           for (let i = 0; i < ctMarkers.length - 1; i++) {
-            segments.push({ start: ctMarkers[i].time, end: ctMarkers[i+1].time });
+            segments.push({
+              start: ctMarkers[i].time,
+              end: ctMarkers[i + 1].time,
+            });
           }
-          const outputDir = document.getElementById('ct-output-dir').value.trim();
+          const outputDir = document
+            .getElementById("ct-output-dir")
+            .value.trim();
 
           // 显示弹窗
           ctLogLines = 0;
-          document.getElementById('ct-modal-log').textContent = '';
-          document.getElementById('ct-overall-fill').style.width = '0%';
-          document.getElementById('ct-modal-title').textContent = '⚙️ 切割进行中...';
-          document.getElementById('ct-overlay').style.display = 'flex';
+          document.getElementById("ct-modal-log").textContent = "";
+          document.getElementById("ct-overall-fill").style.width = "0%";
+          document.getElementById("ct-modal-title").textContent =
+            "⚙️ 切割进行中...";
+          document.getElementById("ct-overlay").style.display = "flex";
 
-          const res = await fetch('/api/cutter/cut', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file: ctFilePath, segments, output_dir: outputDir })
+          const res = await fetch("/api/cutter/cut", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              file: ctFilePath,
+              segments,
+              output_dir: outputDir,
+            }),
           });
           const data = await res.json();
           if (!data.task_id) {
-            document.getElementById('ct-modal-log').textContent = '❌ ' + (data.error || '未知错误');
+            document.getElementById("ct-modal-log").textContent =
+              "❌ " + (data.error || "未知错误");
             return;
           }
           // 轮询
           const total = segments.length;
           while (true) {
-            await new Promise(r => setTimeout(r, 700));
-            const r2 = await fetch('/api/cutter/task/' + data.task_id);
+            await new Promise((r) => setTimeout(r, 700));
+            const r2 = await fetch("/api/cutter/task/" + data.task_id);
             const t = await r2.json();
-            const logEl = document.getElementById('ct-modal-log');
+            const logEl = document.getElementById("ct-modal-log");
             const lines = t.logs || [];
             if (lines.length > ctLogLines) {
-              for (let i = ctLogLines; i < lines.length; i++) logEl.textContent += lines[i] + '\n';
+              for (let i = ctLogLines; i < lines.length; i++)
+                logEl.textContent += lines[i] + "\n";
               logEl.scrollTop = logEl.scrollHeight;
               ctLogLines = lines.length;
             }
-            document.getElementById('ct-overall-fill').style.width = Math.round((t.done_count||0)/total*100) + '%';
-            if (t.status === 'done' || t.status === 'error') {
-              document.getElementById('ct-modal-title').textContent = t.status === 'done' ? '✅ 切割完成！' : '❌ 切割出错';
+            document.getElementById("ct-overall-fill").style.width =
+              Math.round(((t.done_count || 0) / total) * 100) + "%";
+            if (t.status === "done" || t.status === "error") {
+              document.getElementById("ct-modal-title").textContent =
+                t.status === "done" ? "✅ 切割完成！" : "❌ 切割出错";
               break;
             }
           }
         };
       })();
-
     </script>
   </body>
 </html>

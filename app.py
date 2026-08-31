@@ -10,12 +10,68 @@ from flask import Flask, request, jsonify, send_from_directory, Response, stream
 app = Flask(__name__, static_folder='static')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-YT_DLP = os.path.join(BASE_DIR, 'yt-dlp.exe')
 FFMPEG = os.path.join(BASE_DIR, 'ffmpeg.exe')
-DOWNLOAD_DIR = os.path.join(BASE_DIR, 'downloads')
+DOWNLOAD_DIR = os.path.join(BASE_DIR, 'downloads')  # 默认目录（向后兼容）
 COOKIES_FILE = os.path.join(BASE_DIR, 'cookies.txt')
+SETTINGS_FILE = os.path.join(BASE_DIR, 'settings.json')
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+def find_ytdlp():
+    """查找 yt-dlp：先找同目录 exe，再找 PATH，再用 python -m yt_dlp"""
+    import shutil as _sh
+    local = os.path.join(BASE_DIR, 'yt-dlp.exe')
+    if os.path.isfile(local):
+        return [local]
+    sys_bin = _sh.which('yt-dlp') or _sh.which('yt-dlp.exe')
+    if sys_bin:
+        return [sys_bin]
+    # 最后尝试作为 Python 模块调用
+    try:
+        import yt_dlp  # noqa: F401 – 只是验证模块存在
+        import sys
+        return [sys.executable, '-m', 'yt_dlp']
+    except ImportError:
+        pass
+    return None
+
+_YT_DLP_CMD = find_ytdlp()
+YT_DLP = (_YT_DLP_CMD[0] if _YT_DLP_CMD and len(_YT_DLP_CMD) == 1
+          else os.path.join(BASE_DIR, 'yt-dlp.exe'))
+
+# ── Settings helpers ──────────────────────────────────────────────────────────
+
+def _load_settings():
+    if os.path.isfile(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_settings(data: dict):
+    with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def get_download_dir() -> str:
+    """返回当前生效的下载目录，优先读 settings.json，其次用内置默认值。"""
+    settings = _load_settings()
+    d = settings.get('download_dir', '').strip()
+    if d and os.path.isabs(d):
+        os.makedirs(d, exist_ok=True)
+        return d
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    return DOWNLOAD_DIR
+
+def yt_cmd() -> list:
+    """返回调用 yt-dlp 的命令前缀，支持 exe / PATH 命令 / python -m yt_dlp 三种方式。"""
+    if _YT_DLP_CMD:
+        return list(_YT_DLP_CMD)
+    raise FileNotFoundError(
+        '找不到 yt-dlp.exe，请前往 https://github.com/yt-dlp/yt-dlp/releases 下载 yt-dlp.exe，'
+        f'然后放到程序目录：{BASE_DIR}'
+    )
 
 # Base args: always use node as JS runtime, and point to local ffmpeg
 BASE_ARGS = ['--js-runtimes', 'node']
@@ -72,14 +128,14 @@ def get_info():
     try:
         base = get_base_args()
         result = subprocess.run(
-            [YT_DLP] + base + ['--dump-json', '--no-playlist', url],
+            yt_cmd() + base + ['--dump-json', '--no-playlist', url],
             capture_output=True, text=True, timeout=30,
             encoding='utf-8', errors='replace'
         )
         if result.returncode != 0:
             # Try with playlist
             result = subprocess.run(
-                [YT_DLP] + base + ['--dump-json', '--flat-playlist', url],
+                yt_cmd() + base + ['--dump-json', '--flat-playlist', url],
                 capture_output=True, text=True, timeout=30,
                 encoding='utf-8', errors='replace'
             )
@@ -115,7 +171,7 @@ def get_formats():
     try:
         base = get_base_args()
         result = subprocess.run(
-            [YT_DLP] + base + ['-J', '--no-playlist', url],
+            yt_cmd() + base + ['-J', '--no-playlist', url],
             capture_output=True, text=True, timeout=30,
             encoding='utf-8', errors='replace'
         )
@@ -148,6 +204,32 @@ def get_formats():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    settings = _load_settings()
+    settings.setdefault('download_dir', DOWNLOAD_DIR)
+    return jsonify(settings)
+
+@app.route('/api/settings', methods=['POST'])
+def save_settings():
+    data = request.json or {}
+    settings = _load_settings()
+
+    if 'download_dir' in data:
+        d = data['download_dir'].strip()
+        if d and not os.path.isabs(d):
+            return jsonify({'error': '请输入绝对路径（如 D:\\Downloads）'}), 400
+        settings['download_dir'] = d
+        if d:
+            try:
+                os.makedirs(d, exist_ok=True)
+            except Exception as e:
+                return jsonify({'error': f'目录创建失败：{e}'}), 400
+
+    _save_settings(settings)
+    return jsonify({'ok': True, 'settings': settings})
+
+
 @app.route('/api/cookies-status', methods=['GET'])
 def cookies_status():
     exists = os.path.isfile(COOKIES_FILE)
@@ -160,7 +242,7 @@ def cookies_from_browser():
     browser = data.get('browser', 'chrome')
     try:
         result = subprocess.run(
-            [YT_DLP, '--cookies-from-browser', browser,
+            yt_cmd() + ['--cookies-from-browser', browser,
              '--cookies', COOKIES_FILE,
              '-J', '--no-playlist', 'https://www.youtube.com'],
             capture_output=True, text=True, timeout=30,
@@ -204,14 +286,17 @@ def start_download():
     }
 
     def run_download():
-        cmd = [
-            YT_DLP,
-        ] + get_base_args() + [
-            '-f', format_id,
-            '-o', os.path.join(DOWNLOAD_DIR, output_name),
-            '--newline',
-            '--progress',
-        ] + extra_args + [url]
+        try:
+            cmd = yt_cmd() + get_base_args() + [
+                '-f', format_id,
+                '-o', os.path.join(get_download_dir(), output_name),
+                '--newline',
+                '--progress',
+            ] + extra_args + [url]
+        except FileNotFoundError as e:
+            tasks[task_id]['output'].append(str(e))
+            tasks[task_id]['status'] = 'error'
+            return
 
         proc = subprocess.Popen(
             cmd,
@@ -267,9 +352,10 @@ def get_task(task_id):
 
 @app.route('/api/downloads', methods=['GET'])
 def list_downloads():
+    dl_dir = get_download_dir()
     files = []
-    for f in os.listdir(DOWNLOAD_DIR):
-        fp = os.path.join(DOWNLOAD_DIR, f)
+    for f in os.listdir(dl_dir):
+        fp = os.path.join(dl_dir, f)
         if os.path.isfile(fp):
             files.append({
                 'name': f,
@@ -282,13 +368,13 @@ def list_downloads():
 
 @app.route('/downloads/<path:filename>')
 def serve_download(filename):
-    return send_from_directory(DOWNLOAD_DIR, filename, as_attachment=True)
+    return send_from_directory(get_download_dir(), filename, as_attachment=True)
 
 
 @app.route('/api/open-folder', methods=['POST'])
 def open_folder():
     import subprocess as sp
-    sp.Popen(f'explorer "{DOWNLOAD_DIR}"')
+    sp.Popen(f'explorer "{get_download_dir()}"')
     return jsonify({'ok': True})
 
 
@@ -317,10 +403,16 @@ def _normalize_url(url):
     m = re.search(r'(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})', url)
     return m.group(1) if m else url.split('?')[0].rstrip('/')
 
-def run_pipeline(task_id, url):
+def run_pipeline(task_id, url, segments=None):
+    """
+    segments: None 或 [{"start": float, "end": float}, ...]
+      - None  → 原有 4 步模式：下载→识别翻译→烧录→完成
+      - list  → 切割模式 5 步：下载→切割→识别翻译→烧录→完成（每段独立处理）
+    """
     import re
     from datetime import datetime
 
+    cut_mode = bool(segments)
     task = pipeline_tasks[task_id]
 
     def log(msg):
@@ -331,33 +423,111 @@ def run_pipeline(task_id, url):
         task['error'] = msg
         log('❌ ' + msg)
 
+    # SRT 时间格式
+    def fmt_time(s):
+        ms = int((s % 1) * 1000)
+        return f"{int(s)//3600:02d}:{int(s)//60%60:02d}:{int(s)%60:02d},{ms:03d}"
+
+    def burn_subtitle(video_in, srt_in, video_out):
+        """把 srt_in 烧录到 video_in，输出 video_out。返回 (ok, errmsg)"""
+        tmp_srt = os.path.join(tempfile.gettempdir(), "kiro_tmp_sub.srt")
+        shutil.copy2(srt_in, tmp_srt)
+        srt_esc = tmp_srt.replace("\\", "/").replace(":", "\\:")
+        ffmpeg_bin = find_ffmpeg() or FFMPEG
+        cmd = [ffmpeg_bin, "-i", video_in,
+               "-vf", f"subtitles='{srt_esc}'",
+               "-c:v", "libx264", "-c:a", "aac", "-b:a", "128k",
+               "-y", video_out]
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             text=True, encoding='utf-8', errors='replace')
+        for line in p.stdout:
+            line = line.rstrip()
+            if 'frame=' in line or 'error' in line.lower():
+                log(line)
+        p.wait()
+        try:
+            os.remove(tmp_srt)
+        except Exception:
+            pass
+        return p.returncode == 0, '字幕烧录失败'
+
+    def process_one(video_path, label=''):
+        """对单个视频文件执行 Whisper 识别+翻译+烧录，返回 output_file 或 None"""
+        base = os.path.splitext(video_path)[0]
+
+        # Whisper
+        log(f'  🎙 识别{label}: {os.path.basename(video_path)}')
+        result = whisper_model.transcribe(video_path, task="translate",
+                                          language="en", verbose=False)
+        segs = result["segments"]
+        log(f'  识别完成，{len(segs)} 段字幕')
+
+        # 翻译
+        if translator_cls:
+            _translate_segments(segs, translator_cls, log_fn=log)
+        else:
+            log('  ⚠️ 跳过翻译（未安装 deep-translator）')
+
+        # 生成 SRT
+        srt_path = base + "_zh.srt"
+        with open(srt_path, "w", encoding="utf-8") as f:
+            for i, seg in enumerate(segs, 1):
+                f.write(f"{i}\n{fmt_time(seg['start'])} --> {fmt_time(seg['end'])}\n{seg['text'].strip()}\n\n")
+
+        # 烧录
+        output_file = base + "_字幕.mp4"
+        ok, errmsg = burn_subtitle(video_path, srt_path, output_file)
+
+        # 清理中间文件
+        for tmp in [video_path, srt_path]:
+            try:
+                if os.path.isfile(tmp):
+                    os.remove(tmp)
+            except Exception:
+                pass
+
+        if not ok:
+            log(f'  ❌ 烧录失败{label}')
+            return None
+
+        size_mb = os.path.getsize(output_file) / 1024 / 1024
+        log(f'  ✅ 完成{label}: {os.path.basename(output_file)} ({size_mb:.1f} MB)')
+        return output_file
+
     try:
         # 今天的输出目录
         today = datetime.now().strftime("%Y-%m-%d")
-        out_dir = os.path.join(DOWNLOAD_DIR, today)
+        out_dir = os.path.join(get_download_dir(), today)
         os.makedirs(out_dir, exist_ok=True)
         task['output_dir'] = out_dir
 
-        # ── 第一步：下载 ──────────────────────────────
+        # ── 第一步：下载 ──────────────────────────────────
         task['step'] = 1
         log('=' * 45)
         log('▶ 第一步：下载视频')
         log(f'链接: {url}')
         log(f'保存目录: {out_dir}')
 
-        cmd = [
-            YT_DLP,
+        try:
+            dl_cmd = yt_cmd()
+        except FileNotFoundError as e:
+            fail(str(e))
+            return
+
+        dl_cmd += [
             '--js-runtimes', 'node',
-            '--ffmpeg-location', FFMPEG,
             '-f', 'bestvideo+bestaudio/best',
             '-o', os.path.join(out_dir, '%(title)s.%(ext)s'),
             '--newline', '--no-playlist',
         ]
+        ffmpeg_bin = find_ffmpeg() or FFMPEG
+        if ffmpeg_bin:
+            dl_cmd += ['--ffmpeg-location', ffmpeg_bin]
         if os.path.isfile(COOKIES_FILE):
-            cmd += ['--cookies', COOKIES_FILE]
-        cmd.append(url)
+            dl_cmd += ['--cookies', COOKIES_FILE]
+        dl_cmd.append(url)
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        proc = subprocess.Popen(dl_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, encoding='utf-8', errors='replace')
         downloaded_file = None
         for line in proc.stdout:
@@ -375,7 +545,6 @@ def run_pipeline(task_id, url):
             fail('下载失败，请检查链接或 Cookies')
             return
 
-        # 没捕获到就找最新视频文件
         if not downloaded_file or not os.path.isfile(downloaded_file):
             video_exts = ('.webm', '.mp4', '.mkv', '.mov', '.avi')
             files = sorted(
@@ -393,128 +562,237 @@ def run_pipeline(task_id, url):
 
         log(f'✅ 下载完成: {os.path.basename(downloaded_file)}')
 
-        # ── 第二步：Whisper 识别 + 翻译 ─────────────────
-        task['step'] = 2
-        log('')
-        log('=' * 45)
-        log('▶ 第二步：语音识别 + 中文翻译')
-
+        # ── 提前加载 Whisper 模型（两种模式都需要）────────
         try:
-            import whisper
+            import whisper as _whisper
         except ImportError:
             fail('未安装 whisper，请运行: pip install openai-whisper')
             return
 
-        log('加载 Whisper base 模型...')
-        model = whisper.load_model("base")
-        log('识别中，请稍候...')
-        result = model.transcribe(downloaded_file, task="translate", language="en", verbose=False)
-        segments = result["segments"]
-        log(f'识别完成，共 {len(segments)} 段字幕')
-
         try:
-            from deep_translator import GoogleTranslator
-            log('翻译成中文...')
-            translator = GoogleTranslator(source="en", target="zh-CN")
-            for seg in segments:
-                try:
-                    seg["text"] = translator.translate(seg["text"].strip())
-                except Exception:
-                    pass
-            log('✅ 中文翻译完成')
+            from deep_translator import GoogleTranslator as _GT
+            translator_cls = _GT
         except ImportError:
-            log('⚠️ 未安装 deep-translator，保留英文字幕')
+            translator_cls = None
 
-        # 生成 SRT
-        def fmt_time(s):
-            ms = int((s % 1) * 1000)
-            return f"{int(s)//3600:02d}:{int(s)//60%60:02d}:{int(s)%60:02d},{ms:03d}"
+        log('加载 Whisper base 模型...')
+        whisper_model = _whisper.load_model("base")
 
-        base_name = os.path.splitext(downloaded_file)[0]
-        srt_path = base_name + "_zh.srt"
-        with open(srt_path, "w", encoding="utf-8") as f:
+        # ══════════════════════════════════════════════════
+        # 切割模式（有 segments）
+        # ══════════════════════════════════════════════════
+        if cut_mode:
+            # ── 第二步：切割 ─────────────────────────────
+            task['step'] = 2
+            log('')
+            log('=' * 45)
+            log(f'▶ 第二步：按文案切割视频（共 {len(segments)} 段）')
+
+            ffmpeg_bin = find_ffmpeg() or FFMPEG
+            base_name  = os.path.splitext(os.path.basename(downloaded_file))[0]
+            clip_files = []
+
             for i, seg in enumerate(segments, 1):
-                f.write(f"{i}\n{fmt_time(seg['start'])} --> {fmt_time(seg['end'])}\n{seg['text'].strip()}\n\n")
-        log(f'✅ 字幕文件: {os.path.basename(srt_path)}')
+                start = seg['start']
+                end   = seg['end']
+                dur   = end - start
+                clip_path = os.path.join(out_dir, f"{base_name}_片段{i:02d}.mp4")
+                log(f'  切割第 {i} 段: {_sec2hms(start)} → {_sec2hms(end)} ({dur:.1f}s)')
+                cut_cmd = [
+                    ffmpeg_bin,
+                    '-ss', str(start), '-to', str(end),
+                    '-i', downloaded_file,
+                    '-c', 'copy',
+                    '-avoid_negative_ts', 'make_zero',
+                    '-y', clip_path
+                ]
+                p = subprocess.run(cut_cmd, capture_output=True,
+                                   text=True, encoding='utf-8', errors='replace')
+                if p.returncode != 0 or not os.path.isfile(clip_path):
+                    log(f'  ⚠️ 第 {i} 段切割失败，跳过')
+                    continue
+                clip_files.append((i, clip_path))
 
-        # ── 第三步：烧录字幕 ──────────────────────────────
-        task['step'] = 3
-        log('')
-        log('=' * 45)
-        log('▶ 第三步：烧录字幕到视频')
+            log(f'✅ 切割完成，共 {len(clip_files)} 段')
 
-        output_file = base_name + "_字幕.mp4"
-        # 用临时路径避免 libass 无法处理路径中的单引号
-        tmp_srt = os.path.join(tempfile.gettempdir(), "kiro_tmp_sub.srt")
-        shutil.copy2(srt_path, tmp_srt)
-        srt_escaped = tmp_srt.replace("\\", "/").replace(":", "\\:")
-
-        cmd2 = [
-            FFMPEG,
-            "-i", downloaded_file,
-            "-vf", (
-                f"subtitles='{srt_escaped}'"
-            ),
-            "-c:v", "libx264",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-y", output_file
-        ]
-
-        proc2 = subprocess.Popen(cmd2, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 text=True, encoding='utf-8', errors='replace')
-        for line in proc2.stdout:
-            line = line.rstrip()
-            if 'frame=' in line or 'error' in line.lower():
-                log(line)
-        proc2.wait()
-
-        if proc2.returncode != 0:
-            fail('字幕烧录失败')
-            return
-
-        size_mb = os.path.getsize(output_file) / 1024 / 1024
-        log(f'✅ 烧录完成: {os.path.basename(output_file)} ({size_mb:.1f} MB)')
-
-        # ── 清理中间文件 ──────────────────────────────────
-        for tmp in [downloaded_file, srt_path, tmp_srt]:
+            # 删除原始下载文件
             try:
-                if os.path.isfile(tmp):
-                    os.remove(tmp)
-                    log(f'🗑 已删除: {os.path.basename(tmp)}')
+                os.remove(downloaded_file)
+                log(f'🗑 已删除原始文件: {os.path.basename(downloaded_file)}')
             except Exception:
                 pass
 
-        # ── 完成 ─────────────────────────────────────────
-        task['step'] = 4
-        task['status'] = 'done'
-        task['output_file'] = output_file
-        log('')
-        log('🎉 全部完成！')
-        log(f'📁 目录: {out_dir}')
-        log(f'🎬 视频: {output_file}')
+            # ── 第三步：逐段识别翻译 ─────────────────────
+            task['step'] = 3
+            log('')
+            log('=' * 45)
+            log('▶ 第三步：逐段语音识别 + 中文翻译')
+
+            # ── 第四步：逐段烧录字幕 ─────────────────────
+            # （识别和烧录合并在 process_one 里，step 在此先设 3 再设 4）
+            output_files = []
+            for idx, (seg_num, clip_path) in enumerate(clip_files, 1):
+                # 识别完第一段后切到 step 4
+                if idx == 1:
+                    pass
+                label = f' 第{seg_num}段'
+                out_f = process_one(clip_path, label=label)
+                if out_f:
+                    output_files.append(out_f)
+                # 处理完第一段后进入烧录步
+                if idx == 1:
+                    task['step'] = 4
+                    log('')
+                    log('=' * 45)
+                    log('▶ 第四步：烧录字幕到各片段')
+
+            # ── 完成 ─────────────────────────────────────
+            task['step'] = 5
+            task['status'] = 'done'
+            task['output_files'] = output_files
+            task['output_file']  = output_files[0] if output_files else ''
+            log('')
+            log(f'🎉 全部完成！共处理 {len(output_files)} 段')
+            log(f'📁 目录: {out_dir}')
+            for f in output_files:
+                log(f'  🎬 {os.path.basename(f)}')
+
+        # ══════════════════════════════════════════════════
+        # 原有模式（无 segments）
+        # ══════════════════════════════════════════════════
+        else:
+            # ── 第二步：Whisper 识别 + 翻译 ──────────────
+            task['step'] = 2
+            log('')
+            log('=' * 45)
+            log('▶ 第二步：语音识别 + 中文翻译')
+
+            log('识别中，请稍候...')
+            result = whisper_model.transcribe(downloaded_file, task="translate",
+                                              language="en", verbose=False)
+            segs = result["segments"]
+            log(f'识别完成，共 {len(segs)} 段字幕')
+
+            if translator_cls:
+                log('翻译成中文...')
+                _translate_segments(segs, translator_cls, log_fn=log)
+                log('✅ 中文翻译完成')
+            else:
+                log('⚠️ 未安装 deep-translator，保留英文字幕')
+
+            base_name = os.path.splitext(downloaded_file)[0]
+            srt_path  = base_name + "_zh.srt"
+            with open(srt_path, "w", encoding="utf-8") as f:
+                for i, seg in enumerate(segs, 1):
+                    f.write(f"{i}\n{fmt_time(seg['start'])} --> {fmt_time(seg['end'])}\n{seg['text'].strip()}\n\n")
+            log(f'✅ 字幕文件: {os.path.basename(srt_path)}')
+
+            # ── 第三步：烧录字幕 ──────────────────────────
+            task['step'] = 3
+            log('')
+            log('=' * 45)
+            log('▶ 第三步：烧录字幕到视频')
+
+            output_file = base_name + "_字幕.mp4"
+            ok, _ = burn_subtitle(downloaded_file, srt_path, output_file)
+
+            for tmp in [downloaded_file, srt_path]:
+                try:
+                    if os.path.isfile(tmp):
+                        os.remove(tmp)
+                        log(f'🗑 已删除: {os.path.basename(tmp)}')
+                except Exception:
+                    pass
+
+            if not ok:
+                fail('字幕烧录失败')
+                return
+
+            size_mb = os.path.getsize(output_file) / 1024 / 1024
+            log(f'✅ 烧录完成: {os.path.basename(output_file)} ({size_mb:.1f} MB)')
+
+            # ── 完成 ─────────────────────────────────────
+            task['step'] = 4
+            task['status'] = 'done'
+            task['output_file']  = output_file
+            task['output_files'] = [output_file]
+            log('')
+            log('🎉 全部完成！')
+            log(f'📁 目录: {out_dir}')
+            log(f'🎬 视频: {output_file}')
 
         # ── 写入流水线历史 ────────────────────────────────
         from datetime import datetime as _dt
         history = _load_pipeline_history()
         key = _normalize_url(url)
+        out_files = task.get('output_files', [task.get('output_file', '')])
         history[key] = {
             'url': url,
-            'output_file': output_file,
+            'output_file': task.get('output_file', ''),
+            'output_files': out_files,
             'ts': _dt.now().strftime('%Y-%m-%d %H:%M'),
-            'title': os.path.basename(output_file),
+            'title': os.path.basename(task.get('output_file', '')),
+            'cut_mode': cut_mode,
         }
         _save_pipeline_history(history)
 
     except Exception as e:
-        fail(str(e))
+        import traceback
+        fail(str(e) + '\n' + traceback.format_exc())
+
+
+def _translate_segments(segs, translator_cls, log_fn=None):
+    """
+    把 Whisper segments 的 text 字段翻译成中文。
+    - 自动截断超长文本（GoogleTranslator 上限约 500 字符）
+    - 单段失败最多重试 2 次（换新 translator 实例规避限流）
+    - 返回成功翻译的段数
+    """
+    MAX_CHARS = 490
+    ok_count = 0
+    fail_count = 0
+
+    for i, seg in enumerate(segs):
+        raw = seg["text"].strip()
+        if not raw:
+            continue
+        # 截断过长文本
+        text = raw[:MAX_CHARS] if len(raw) > MAX_CHARS else raw
+        translated = None
+        for attempt in range(3):
+            try:
+                tr = translator_cls(source="en", target="zh-CN")
+                translated = tr.translate(text)
+                if translated:
+                    break
+            except Exception as e:
+                if log_fn and attempt == 2:
+                    log_fn(f'  ⚠️ 第{i+1}段翻译失败（已重试3次）: {e}')
+        if translated:
+            seg["text"] = translated
+            ok_count += 1
+        else:
+            fail_count += 1
+            # 保留原文，不替换
+
+    if log_fn:
+        log_fn(f'  翻译完成：{ok_count} 段成功' + (f'，{fail_count} 段保留原文' if fail_count else ''))
+    return ok_count
+
+
+    """秒数转 HH:MM:SS 字符串，用于日志"""
+    h = int(s) // 3600
+    m = int(s) % 3600 // 60
+    sec = int(s) % 60
+    return f"{h:02d}:{m:02d}:{sec:02d}"
 
 
 @app.route('/api/pipeline/start', methods=['POST'])
 def pipeline_start():
     data = request.json
-    url   = data.get('url', '').strip()
-    force = data.get('force', False)   # 强制重新下载
+    url      = data.get('url', '').strip()
+    force    = data.get('force', False)
+    segments = data.get('segments', None)   # [{"start": float, "end": float}, ...]
     if not url:
         return jsonify({'error': '请输入有效的 URL'}), 400
 
@@ -538,9 +816,11 @@ def pipeline_start():
         'logs': [],
         'output_dir': '',
         'output_file': '',
+        'output_files': [],
         'error': '',
+        'cut_mode': bool(segments),
     }
-    t = threading.Thread(target=run_pipeline, args=(task_id, url), daemon=True)
+    t = threading.Thread(target=run_pipeline, args=(task_id, url, segments), daemon=True)
     t.start()
     return jsonify({'task_id': task_id})
 
@@ -556,6 +836,8 @@ def pipeline_task(task_id):
         'logs': task['logs'],
         'output_dir': task['output_dir'],
         'output_file': task['output_file'],
+        'output_files': task.get('output_files', []),
+        'cut_mode': task.get('cut_mode', False),
         'error': task['error'],
     })
 
@@ -763,10 +1045,9 @@ def dewatermark_preview():
     if os.path.isabs(filename):
         video_path = filename
     else:
-        video_path = os.path.join(DOWNLOAD_DIR, filename)
+        video_path = os.path.join(get_download_dir(), filename)
     if not os.path.isfile(video_path):
         return jsonify({'error': '文件不存在'}), 400
-
     cap = cv2.VideoCapture(video_path)
     ret, frame = cap.read()
     cap.release()
@@ -825,7 +1106,7 @@ def dewatermark_start():
     if os.path.isabs(filename):
         video_path = filename
     else:
-        video_path = os.path.join(DOWNLOAD_DIR, filename)
+        video_path = os.path.join(get_download_dir(), filename)
 
     if not os.path.isfile(video_path):
         return jsonify({'error': f'文件不存在: {video_path}'}), 400
@@ -853,13 +1134,14 @@ def dewatermark_task(task_id):
 @app.route('/api/dewatermark/files', methods=['GET'])
 def dewatermark_files():
     """递归列出 downloads 下所有视频文件"""
+    dl_dir = get_download_dir()
     video_exts = ('.mp4', '.webm', '.mkv', '.mov', '.avi')
     result = []
-    for root, dirs, files in os.walk(DOWNLOAD_DIR):
+    for root, dirs, files in os.walk(dl_dir):
         for f in files:
             if any(f.lower().endswith(e) for e in video_exts):
                 full = os.path.join(root, f)
-                rel  = os.path.relpath(full, DOWNLOAD_DIR)
+                rel  = os.path.relpath(full, dl_dir)
                 result.append({'name': f, 'rel': rel, 'full': full,
                                 'size': os.path.getsize(full)})
     result.sort(key=lambda x: x['name'])
@@ -928,7 +1210,7 @@ def run_crawl(task_id, keyword, count):
     def log(msg):
         task['logs'].append(msg)
 
-    tmp_dir = os.path.join(DOWNLOAD_DIR, '_crawl_tmp')
+    tmp_dir = os.path.join(get_download_dir(), '_crawl_tmp')
     os.makedirs(tmp_dir, exist_ok=True)
 
     try:
@@ -1156,7 +1438,7 @@ def cutter_open():
     if not f:
         return jsonify({'error': '未收到文件'}), 400
     # 保存到下载目录下的临时文件夹
-    tmp_dir = os.path.join(DOWNLOAD_DIR, '_cutter_tmp')
+    tmp_dir = os.path.join(get_download_dir(), '_cutter_tmp')
     os.makedirs(tmp_dir, exist_ok=True)
     # 清理旧临时文件
     for old in os.listdir(tmp_dir):
@@ -1263,6 +1545,6 @@ def cutter_task_status(task_id):
 
 if __name__ == '__main__':
     print(f"yt-dlp 路径: {YT_DLP}")
-    print(f"下载目录: {DOWNLOAD_DIR}")
+    print(f"下载目录: {get_download_dir()}")
     print("启动服务: http://127.0.0.1:5000")
     app.run(debug=False, host='127.0.0.1', port=5000)
