@@ -1,0 +1,3776 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>yt-dlp 下载器</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #f5f6fa;
+        --white: #ffffff;
+        --s2: #f0f1f5;
+        --border: #e4e6ee;
+        --accent: #4f46e5;
+        --accent-l: #6366f1;
+        --accent-bg: #eef2ff;
+        --green: #059669;
+        --green-bg: #d1fae5;
+        --red: #dc2626;
+        --red-bg: #fee2e2;
+        --yellow: #d97706;
+        --text: #111827;
+        --text2: #6b7280;
+        --text3: #374151;
+        --r: 10px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+
+      ::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+      }
+
+      body {
+        font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .shell {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* ── Sidebar ── */
+      .sidebar {
+        width: 210px;
+        flex-shrink: 0;
+        background: var(--white);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px 18px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .brand-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        color: white;
+      }
+      .brand-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.3px;
+      }
+      .brand-ver {
+        font-size: 11px;
+        color: var(--text2);
+        margin-top: 1px;
+      }
+
+      .nav-group {
+        padding: 10px 10px 0;
+      }
+      .nav-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text2);
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        padding: 6px 8px 4px;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        color: var(--text2);
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.14s;
+        user-select: none;
+      }
+      .nav-item:hover {
+        background: var(--s2);
+        color: var(--text);
+      }
+      .nav-item.active {
+        background: var(--accent-bg);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .nav-icon {
+        font-size: 15px;
+        width: 18px;
+        text-align: center;
+      }
+
+      .sidebar-footer {
+        margin-top: auto;
+        padding: 14px 18px;
+        border-top: 1px solid var(--border);
+      }
+      .ck-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text2);
+      }
+      .ck-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--red);
+        flex-shrink: 0;
+      }
+      .ck-dot.ok {
+        background: var(--green);
+      }
+
+      /* ── Main ── */
+      .main {
+        flex: 1;
+        overflow-y: auto;
+        background: var(--bg);
+      }
+      .page {
+        display: none;
+        padding: 28px 32px;
+        width: 100%;
+      }
+      .page.active {
+        display: block;
+      }
+
+      .page-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text);
+      }
+
+      /* ── Card ── */
+      .card {
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .card-title {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text2);
+        margin-bottom: 14px;
+      }
+
+      /* ── URL bar ── */
+      .url-row {
+        display: flex;
+        gap: 8px;
+      }
+      .url-input {
+        flex: 1;
+        height: 42px;
+        padding: 0 14px;
+        background: var(--s2);
+        border: 1.5px solid var(--border);
+        border-radius: var(--r);
+        color: var(--text);
+        font-size: 14px;
+        outline: none;
+        transition:
+          border-color 0.14s,
+          background 0.14s;
+      }
+      .url-input:focus {
+        border-color: var(--accent);
+        background: var(--white);
+      }
+      .url-input::placeholder {
+        color: #9ca3af;
+      }
+
+      /* ── Buttons ── */
+      .btn {
+        height: 42px;
+        padding: 0 18px;
+        border-radius: var(--r);
+        border: none;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.14s;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: white;
+      }
+      .btn-primary:hover {
+        background: var(--accent-l);
+      }
+      .btn-sm {
+        height: 34px;
+        padding: 0 14px;
+        font-size: 12px;
+      }
+      .btn-outline {
+        background: white;
+        color: var(--text3);
+        border: 1.5px solid var(--border);
+        height: 34px;
+        padding: 0 13px;
+      }
+      .btn-outline:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-bg);
+      }
+      .btn-outline.on {
+        background: var(--accent-bg);
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .btn:disabled {
+        opacity: 0.45;
+        pointer-events: none;
+      }
+
+      /* ── Video preview ── */
+      .video-card {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .video-thumb {
+        width: 140px;
+        height: 79px;
+        border-radius: 7px;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: var(--s2);
+        border: 1px solid var(--border);
+      }
+      .v-title {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.45;
+        margin-bottom: 6px;
+      }
+      .v-meta {
+        font-size: 12px;
+        color: var(--text2);
+      }
+
+      /* ── Chips ── */
+      .chips {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        height: 30px;
+        padding: 0 12px;
+        border-radius: 20px;
+        background: var(--s2);
+        border: 1.5px solid var(--border);
+        color: var(--text2);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.14s;
+      }
+      .chip:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .chip.on {
+        background: var(--accent-bg);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* ── Format table ── */
+      .fmt-wrap {
+        border: 1.5px solid var(--border);
+        border-radius: var(--r);
+        overflow: hidden;
+        margin-top: 14px;
+      }
+      .fmt-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .fmt-table th {
+        padding: 9px 12px;
+        text-align: left;
+        color: var(--text2);
+        font-weight: 600;
+        font-size: 11px;
+        background: var(--s2);
+        border-bottom: 1px solid var(--border);
+      }
+      .fmt-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .fmt-table tr:last-child td {
+        border-bottom: none;
+      }
+      .fmt-table tbody tr {
+        cursor: pointer;
+      }
+      .fmt-table tbody tr:hover td {
+        background: #f9fafb;
+      }
+      .fmt-table tbody tr.sel td {
+        background: var(--accent-bg);
+      }
+      .badge {
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .bv {
+        background: #ede9fe;
+        color: #7c3aed;
+      }
+      .ba {
+        background: #fef3c7;
+        color: #b45309;
+      }
+      .bav {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      code {
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 11px;
+        color: var(--accent);
+      }
+
+      /* ── Options grid ── */
+      .opt-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .opt-item label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text2);
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .opt-item select,
+      .opt-item input[type="text"] {
+        width: 100%;
+        height: 36px;
+        padding: 0 11px;
+        background: var(--s2);
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.14s;
+      }
+      .opt-item select:focus,
+      .opt-item input[type="text"]:focus {
+        border-color: var(--accent);
+        background: white;
+      }
+
+      /* ── Action row ── */
+      .action-row {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 16px;
+      }
+
+      /* ── Progress ── */
+      .prog-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 7px;
+      }
+      .prog-pct {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      .prog-meta {
+        font-size: 12px;
+        color: var(--text2);
+        display: flex;
+        gap: 12px;
+      }
+      .prog-track {
+        height: 6px;
+        background: var(--s2);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 14px;
+        border: 1px solid var(--border);
+      }
+      .prog-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), #818cf8);
+        border-radius: 3px;
+        transition: width 0.3s;
+      }
+      .log {
+        background: #1e1e2e;
+        color: #cdd6f4;
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 11.5px;
+        line-height: 1.75;
+        height: 190px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .log::-webkit-scrollbar-thumb {
+        background: #45475a;
+      }
+
+      /* ── Error ── */
+      .err-box {
+        padding: 12px 14px;
+        border-radius: var(--r);
+        background: var(--red-bg);
+        border: 1px solid #fca5a5;
+        color: var(--red);
+        font-size: 13px;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin-bottom: 14px;
+      }
+
+      /* ── Tasks ── */
+      .task-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        box-shadow: var(--shadow);
+        margin-bottom: 8px;
+      }
+      .t-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .dot-run {
+        background: var(--accent);
+        animation: pulse 0.9s infinite;
+      }
+      .dot-done {
+        background: var(--green);
+      }
+      .dot-err {
+        background: var(--red);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.25;
+        }
+      }
+      .t-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .t-url {
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .t-sub {
+        font-size: 11px;
+        color: var(--text2);
+        margin-top: 2px;
+      }
+
+      /* ── Files ── */
+      .file-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 14px;
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        box-shadow: var(--shadow);
+        margin-bottom: 7px;
+      }
+      .f-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .f-name {
+        flex: 1;
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .f-size {
+        font-size: 11px;
+        color: var(--text2);
+        flex-shrink: 0;
+        margin: 0 10px;
+      }
+
+      /* ── Settings ── */
+      .setting-section {
+        margin-bottom: 8px;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .pill-ok {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .pill-err {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+        font-size: 12px;
+      }
+      .info-grid dt {
+        color: var(--text2);
+        white-space: nowrap;
+      }
+      .info-grid dd {
+        color: var(--text);
+      }
+
+      /* ── Toast ── */
+      .toast {
+        position: fixed;
+        bottom: 22px;
+        right: 22px;
+        padding: 10px 16px;
+        border-radius: var(--r);
+        font-size: 13px;
+        font-weight: 500;
+        background: var(--white);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-md);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(6px);
+        transition: all 0.18s;
+        z-index: 999;
+      }
+      .toast.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+      }
+      .toast.ok {
+        border-color: #6ee7b7;
+        color: var(--green);
+      }
+      .toast.err {
+        border-color: #fca5a5;
+        color: var(--red);
+      }
+
+      #pipe-script-input:focus {
+        border-color: var(--accent) !important;
+        background: var(--white) !important;
+      }
+      #ct-script-input:focus {
+        border-color: var(--accent) !important;
+        background: var(--white) !important;
+      }
+
+      .empty {
+        text-align: center;
+        padding: 48px;
+        color: var(--text2);
+        font-size: 13px;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 16px 0;
+      }
+
+      /* ── Pipeline steps ── */
+      .pipe-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+      }
+      .ps-dot {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--s2);
+        border: 2px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text2);
+        transition: all 0.3s;
+      }
+      .ps-dot.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+        animation: pulse 0.9s infinite;
+      }
+      .ps-dot.done {
+        background: var(--green);
+        border-color: var(--green);
+        color: white;
+        animation: none;
+      }
+      .ps-dot.err {
+        background: var(--red);
+        border-color: var(--red);
+        color: white;
+        animation: none;
+      }
+      .ps-label {
+        font-size: 11px;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+      .ps-line {
+        flex: 1;
+        height: 2px;
+        background: var(--border);
+        align-self: center;
+        margin: 0 6px;
+        margin-bottom: 18px;
+        transition: background 0.3s;
+        min-width: 24px;
+      }
+      .ps-line.done {
+        background: var(--green);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-icon">⬇</div>
+          <div>
+            <div class="brand-name">yt-dlp</div>
+            <div class="brand-ver">可视化下载器</div>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">菜单</div>
+          <div class="nav-item active" onclick="nav('download', this)">
+            <span class="nav-icon">⬇</span> 下载
+          </div>
+          <div class="nav-item" onclick="nav('tasks', this)">
+            <span class="nav-icon">◎</span> 任务
+          </div>
+          <div class="nav-item" onclick="nav('files', this)">
+            <span class="nav-icon">◫</span> 文件
+          </div>
+          <div class="nav-item" onclick="nav('dewatermark', this)">
+            <span class="nav-icon">🧹</span> 去水印
+          </div>
+          <div class="nav-item" onclick="nav('crawl', this)">
+            <span class="nav-icon">🎯</span> 自动抓取
+          </div>
+          <div class="nav-item" onclick="nav('pipeline', this)">
+            <span class="nav-icon">🚀</span> 自动流水线
+          </div>
+          <div class="nav-item" onclick="nav('cutter', this)">
+            <span class="nav-icon">✂️</span> 视频切割
+          </div>
+          <div class="nav-item" onclick="nav('settings', this)">
+            <span class="nav-icon">⚙</span> 设置
+          </div>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="ck-status">
+            <div class="ck-dot" id="sb-dot"></div>
+            <span id="sb-label">检测 Cookies…</span>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main">
+        <!-- ── Download ── -->
+        <div class="page active" id="page-download">
+          <div class="page-title">下载视频</div>
+
+          <div class="card">
+            <div class="card-title">视频链接</div>
+            <div class="url-row">
+              <input
+                class="url-input"
+                id="url-input"
+                type="text"
+                placeholder="粘贴链接，支持 YouTube、B 站、Twitter 等 1000+ 网站…"
+              />
+              <button
+                class="btn btn-primary"
+                id="parse-btn"
+                onclick="fetchInfo()"
+              >
+                解析
+              </button>
+            </div>
+          </div>
+
+          <div id="err-box" class="err-box" style="display: none"></div>
+
+          <div id="video-card" class="card" style="display: none">
+            <div class="video-card">
+              <img
+                class="video-thumb"
+                id="v-thumb"
+                src=""
+                alt=""
+                onerror="this.style.display = 'none'"
+              />
+              <div>
+                <div class="v-title" id="v-title"></div>
+                <div class="v-meta" id="v-meta"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="fmt-card" class="card" style="display: none">
+            <div class="card-title">格式选择</div>
+            <div class="chips">
+              <div
+                class="chip on"
+                onclick="pickChip(this, 'bestvideo+bestaudio/best')"
+              >
+                🏆 最佳质量
+              </div>
+              <div
+                class="chip"
+                onclick="
+                  pickChip(
+                    this,
+                    'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
+                  )
+                "
+              >
+                📺 1080p
+              </div>
+              <div
+                class="chip"
+                onclick="
+                  pickChip(
+                    this,
+                    'bestvideo[height<=720]+bestaudio/best[height<=720]',
+                  )
+                "
+              >
+                📱 720p
+              </div>
+              <div class="chip" onclick="pickChip(this, 'bestaudio/best')">
+                🎵 仅音频
+              </div>
+              <div
+                class="chip"
+                onclick="pickChip(this, 'worstvideo+worstaudio/worst')"
+              >
+                💾 最小
+              </div>
+              <div class="chip" id="chip-custom" onclick="toggleFmt(this)">
+                🎛 自定义
+              </div>
+            </div>
+            <div id="fmt-wrap" class="fmt-wrap" style="display: none">
+              <table class="fmt-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>ID</th>
+                    <th>格式</th>
+                    <th>分辨率</th>
+                    <th>FPS</th>
+                    <th>类型</th>
+                    <th>码率</th>
+                    <th>大小</th>
+                  </tr>
+                </thead>
+                <tbody id="fmt-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="opt-card" class="card" style="display: none">
+            <div class="card-title">下载选项</div>
+            <div class="opt-grid">
+              <div class="opt-item">
+                <label>文件名模板</label>
+                <input type="text" id="out-tpl" value="%(title)s.%(ext)s" />
+              </div>
+              <div class="opt-item">
+                <label>封装格式</label>
+                <select id="merge-fmt">
+                  <option value="">自动</option>
+                  <option value="mp4">mp4</option>
+                  <option value="mkv">mkv</option>
+                  <option value="webm">webm</option>
+                  <option value="mp3">mp3（音频）</option>
+                  <option value="m4a">m4a（音频）</option>
+                </select>
+              </div>
+              <div class="opt-item">
+                <label>字幕</label>
+                <select id="sub-opt">
+                  <option value="">不下载</option>
+                  <option value="--write-sub">下载字幕文件</option>
+                  <option value="--write-auto-sub">下载自动字幕</option>
+                  <option value="--embed-subs">内嵌字幕</option>
+                </select>
+              </div>
+              <div class="opt-item">
+                <label>限速（如 1M、500K）</label>
+                <input type="text" id="rate-limit" placeholder="不限速" />
+              </div>
+            </div>
+            <!-- 音频开关 -->
+            <div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;background:var(--s2);border-radius:8px;border:1.5px solid var(--border);">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;font-weight:500;color:var(--text3);">
+                <input type="checkbox" id="include-audio" style="width:15px;height:15px;accent-color:var(--accent);" />
+                包含音轨
+              </label>
+              <span style="font-size:12px;color:var(--text2);">默认只下载视频画面，不含声音；勾选后合并音频</span>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-outline btn-sm" onclick="previewCmd()">
+                预览命令
+              </button>
+              <button
+                class="btn btn-primary btn-sm"
+                id="dl-btn"
+                onclick="startDownload()"
+              >
+                开始下载
+              </button>
+            </div>
+            <div
+              id="cmd-box"
+              class="log"
+              style="
+                display: none;
+                height: 50px;
+                margin-top: 12px;
+                font-size: 12px;
+              "
+            ></div>
+          </div>
+
+          <div id="prog-card" class="card" style="display: none">
+            <div class="card-title">下载进度</div>
+            <div class="prog-head">
+              <span class="prog-pct" id="prog-pct">0%</span>
+              <div class="prog-meta">
+                <span id="prog-speed"></span>
+                <span id="prog-eta"></span>
+              </div>
+            </div>
+            <div class="prog-track">
+              <div class="prog-fill" id="prog-fill" style="width: 0%"></div>
+            </div>
+            <div class="log" id="prog-log"></div>
+          </div>
+        </div>
+
+        <!-- ── Tasks ── -->
+        <div class="page" id="page-tasks">
+          <div class="page-title">下载任务</div>
+          <div id="tasks-list"><div class="empty">暂无任务记录</div></div>
+        </div>
+
+        <!-- ── Files ── -->
+        <div class="page" id="page-files">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            "
+          >
+            <div class="page-title" style="margin: 0">已下载文件</div>
+            <div style="display: flex; gap: 8px">
+              <button class="btn btn-outline btn-sm" onclick="openFolder()">
+                打开文件夹
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="loadFiles()">
+                刷新
+              </button>
+            </div>
+          </div>
+          <div id="files-list">
+            <div class="empty">downloads 目录暂无文件</div>
+          </div>
+        </div>
+
+        <!-- ── Dewatermark ── -->
+        <div class="page" id="page-dewatermark">
+          <div class="page-title">🧹 去水印</div>
+          <p style="font-size: 13px; color: var(--text2); margin-bottom: 20px">
+            自动检测视频中固定位置的水印，用 OpenCV 修复。支持 Telea 和
+            Navier-Stokes 两种算法。
+          </p>
+
+          <div class="card">
+            <div class="card-title">选择视频</div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px">
+              <select class="url-input" id="dw-file" style="height: 42px">
+                <option value="">-- 加载中 --</option>
+              </select>
+              <button
+                class="btn btn-outline"
+                style="height: 42px"
+                onclick="loadDwFiles()"
+              >
+                刷新
+              </button>
+            </div>
+
+            <div class="card-title" style="margin-top: 14px">修复算法</div>
+            <div class="chips" style="margin-bottom: 16px">
+              <div
+                class="chip on"
+                id="dw-telea"
+                onclick="pickDwMethod(this, 'telea')"
+              >
+                ⚡ Telea（推荐，较快）
+              </div>
+              <div class="chip" id="dw-ns" onclick="pickDwMethod(this, 'ns')">
+                🌊 Navier-Stokes（较慢，边缘更平滑）
+              </div>
+            </div>
+
+            <div class="card-title">水印坐标（留空则自动检测）</div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 16px;
+              "
+            >
+              <div class="opt-item">
+                <label>X（左边距）</label
+                ><input type="number" id="dw-x" placeholder="自动" min="0" />
+              </div>
+              <div class="opt-item">
+                <label>Y（上边距）</label
+                ><input type="number" id="dw-y" placeholder="自动" min="0" />
+              </div>
+              <div class="opt-item">
+                <label>W（宽度）</label
+                ><input type="number" id="dw-w" placeholder="自动" min="0" />
+              </div>
+              <div class="opt-item">
+                <label>H（高度）</label
+                ><input type="number" id="dw-h" placeholder="自动" min="0" />
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button
+                class="btn btn-outline"
+                id="dw-preview-btn"
+                onclick="previewWatermark()"
+              >
+                🔍 预览检测结果
+              </button>
+              <button
+                class="btn btn-primary"
+                id="dw-btn"
+                onclick="startDewatermark()"
+              >
+                开始去水印
+              </button>
+            </div>
+          </div>
+
+          <!-- 预览区 -->
+          <div class="card" id="dw-preview-card" style="display: none">
+            <div class="card-title">在图片上拖拉选择水印区域</div>
+            <p
+              style="font-size: 12px; color: var(--text2); margin-bottom: 10px"
+            >
+              在图片上按住鼠标拖拉，画出水印所在的框，松开后自动填入坐标
+            </p>
+            <div
+              style="
+                position: relative;
+                display: inline-block;
+                user-select: none;
+                cursor: crosshair;
+              "
+              id="dw-canvas-wrap"
+            >
+              <img
+                id="dw-preview-img"
+                style="
+                  max-width: 100%;
+                  display: block;
+                  border-radius: 8px;
+                  border: 1px solid var(--border);
+                "
+                src=""
+                alt="预览"
+              />
+              <canvas
+                id="dw-canvas"
+                style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  border-radius: 8px;
+                  cursor: crosshair;
+                "
+              ></canvas>
+            </div>
+            <div
+              id="dw-preview-info"
+              style="margin-top: 10px; font-size: 13px; color: var(--text2)"
+            ></div>
+          </div>
+
+          <div class="card" id="dw-progress-card" style="display: none">
+            <div class="card-title">处理进度</div>
+            <div class="prog-head">
+              <span class="prog-pct" id="dw-pct">0%</span>
+            </div>
+            <div class="prog-track">
+              <div class="prog-fill" id="dw-fill" style="width: 0%"></div>
+            </div>
+            <div class="log" id="dw-log" style="height: 260px"></div>
+            <div
+              id="dw-result"
+              style="
+                display: none;
+                margin-top: 14px;
+                padding: 12px 14px;
+                background: var(--green-bg);
+                border: 1px solid #6ee7b7;
+                border-radius: var(--r);
+                font-size: 13px;
+                color: var(--green);
+                line-height: 1.8;
+              "
+            ></div>
+            <div
+              id="dw-error"
+              class="err-box"
+              style="display: none; margin-top: 14px"
+            ></div>
+          </div>
+        </div>
+
+        <!-- ── Crawl ── -->
+        <div class="page" id="page-crawl">
+          <div class="page-title">🎯 自动抓取</div>
+          <p style="font-size: 13px; color: var(--text2); margin-bottom: 20px">
+            搜索 YouTube → 只下前20秒片段 → 水印检测 → 返回结果列表<br />
+            <b>自动去重</b>：已检测过的视频下次会自动跳过
+          </p>
+          <div class="card">
+            <div class="card-title">搜索设置</div>
+            <div style="display: flex; gap: 8px; margin-bottom: 14px">
+              <input
+                class="url-input"
+                id="crawl-keyword"
+                type="text"
+                placeholder="关键词，如：motivational speech kobe bryant"
+                style="flex: 1"
+              />
+            </div>
+            <div class="opt-grid" style="margin-bottom: 16px">
+              <div class="opt-item">
+                <label>检测数量</label>
+                <select id="crawl-count">
+                  <option value="5" selected>5 个</option>
+                  <option value="10">10 个</option>
+                  <option value="20">20 个</option>
+                  <option value="30">30 个</option>
+                </select>
+              </div>
+            </div>
+            <div class="action-row" style="gap: 10px; flex-wrap: wrap">
+              <button
+                class="btn btn-primary"
+                id="crawl-btn"
+                onclick="startCrawl()"
+              >
+                🔍 开始检测
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="showCrawlHistory()"
+              >
+                📚 历史记录
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="clearCrawlHistory()"
+              >
+                🗑 清空历史
+              </button>
+              <span
+                id="crawl-hist-count"
+                style="font-size: 12px; color: var(--text2)"
+              ></span>
+            </div>
+          </div>
+          <div class="card" id="crawl-progress-card" style="display: none">
+            <div class="card-title">检测进度</div>
+            <div
+              style="
+                display: flex;
+                gap: 16px;
+                margin-bottom: 12px;
+                font-size: 13px;
+              "
+            >
+              <span>🔍 已检测：<b id="crawl-processed">0</b></span>
+              <span>⚠️ 有水印：<b id="crawl-skipped">0</b></span>
+            </div>
+            <div class="log" id="crawl-log" style="height: 200px"></div>
+            <div
+              id="crawl-error"
+              class="err-box"
+              style="display: none; margin-top: 14px"
+            ></div>
+          </div>
+          <div id="crawl-results-wrap" style="display: none; margin-top: 8px">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 12px;
+              "
+            >
+              <div style="font-size: 14px; font-weight: 600">
+                检测结果
+                <span
+                  id="crawl-result-count"
+                  style="color: var(--text2); font-weight: 400; font-size: 13px"
+                ></span>
+              </div>
+              <div style="font-size: 12px; color: var(--text2)">
+                无水印的视频可复制链接到「下载」页下载
+              </div>
+            </div>
+            <div
+              id="crawl-result-list"
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 12px;
+              "
+            ></div>
+          </div>
+          <div
+            id="crawl-hist-overlay"
+            style="
+              display: none;
+              position: fixed;
+              inset: 0;
+              background: rgba(0, 0, 0, 0.4);
+              z-index: 200;
+              align-items: flex-start;
+              justify-content: center;
+              padding-top: 60px;
+            "
+          >
+            <div
+              style="
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 20px;
+                width: 600px;
+                max-height: 70vh;
+                display: flex;
+                flex-direction: column;
+              "
+            >
+              <div
+                style="display: flex; align-items: center; margin-bottom: 14px"
+              >
+                <span style="font-size: 15px; font-weight: 600; flex: 1"
+                  >📚 已抓取历史</span
+                >
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="
+                    document.getElementById(
+                      'crawl-hist-overlay',
+                    ).style.display = 'none'
+                  "
+                >
+                  关闭
+                </button>
+              </div>
+              <div
+                id="crawl-hist-list"
+                style="overflow-y: auto; flex: 1; font-size: 13px"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Pipeline ── -->
+        <div class="page" id="page-pipeline">
+          <div class="page-title">🚀 自动流水线</div>
+          <p style="font-size: 13px; color: var(--text2); margin-bottom: 20px">
+            输入链接 → 自动下载 → 识别翻译字幕 → 生成带字幕 MP4，按日期归档到
+            downloads/YYYY-MM-DD/
+          </p>
+
+          <div class="card">
+            <div class="card-title">视频链接</div>
+            <div class="url-row">
+              <input
+                class="url-input"
+                id="pipe-url"
+                type="text"
+                placeholder="粘贴 YouTube 链接…"
+              />
+              <button
+                class="btn btn-primary"
+                id="pipe-btn"
+                onclick="startPipeline()"
+              >
+                开始
+              </button>
+            </div>
+          </div>
+
+          <!-- 片段文案卡片（可折叠） -->
+          <div class="card" id="pipe-script-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none"
+                 onclick="togglePipeScript()">
+              <div class="card-title" style="margin:0">✂️ 片段文案（可选）</div>
+              <span id="pipe-script-icon" style="font-size:12px;color:var(--text2)">▼ 展开</span>
+            </div>
+            <div id="pipe-script-body" style="display:none;margin-top:14px">
+              <p style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.75">
+                粘贴片段文案，程序会自动提取时间码。有文案时流程变为：<br>
+                <strong style="color:var(--text)">下载 → 切割 → 逐段识别翻译 → 逐段烧录 → 完成</strong>
+              </p>
+              <textarea id="pipe-script-input"
+                style="width:100%;height:130px;background:var(--s2);border:1.5px solid var(--border);
+                       border-radius:var(--r);color:var(--text);font-size:12px;padding:10px;
+                       outline:none;resize:vertical;font-family:inherit;line-height:1.6;transition:border-color .14s"
+                placeholder="粘贴文案，例如：
+第 1 片段：[00:00] – [01:04]（约 1分04秒）
+第 2 片段：[01:04] – [02:10]（约 1分06秒）
+…
+支持 [MM:SS] 或 [HH:MM:SS] 格式"></textarea>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                <button class="btn btn-outline btn-sm" onclick="parsePipeScript()">📌 解析时间码</button>
+                <button class="btn btn-outline btn-sm" onclick="clearPipeScript()">清空</button>
+                <span id="pipe-script-msg" style="font-size:12px;color:var(--text2)"></span>
+              </div>
+            </div>
+          </div>
+
+          <div id="pipe-progress-card" class="card" style="display: none">
+            <div class="card-title">执行进度</div>
+
+            <!-- 步骤指示器（动态渲染） -->
+            <div id="pipe-steps-row" style="display: flex; gap: 0; margin-bottom: 18px"></div>
+
+            <div class="log" id="pipe-log" style="height: 260px"></div>
+
+            <div
+              id="pipe-result"
+              style="
+                display: none;
+                margin-top: 14px;
+                padding: 12px 14px;
+                background: var(--green-bg);
+                border: 1px solid #6ee7b7;
+                border-radius: var(--r);
+                font-size: 13px;
+                color: var(--green);
+                line-height: 1.8;
+              "
+            ></div>
+            <div
+              id="pipe-error"
+              style="display: none; margin-top: 14px"
+              class="err-box"
+            ></div>
+          </div>
+        </div>
+
+        <!-- ── Cutter ── -->
+        <div class="page" id="page-cutter">
+          <div class="page-title">✂️ 视频切割</div>
+          <p style="font-size: 13px; color: var(--text2); margin-bottom: 16px">
+            打开本地视频，打上时间标记，一键切割成多个片段（无损，速度极快）。
+          </p>
+          <div
+            id="cutter-app"
+            style="display: flex; gap: 16px; height: calc(100vh - 180px)"
+          >
+            <!-- 左：播放器 -->
+            <div
+              style="
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+              "
+            >
+              <!-- 视频区 -->
+              <div
+                id="ct-video-wrap"
+                style="
+                  flex: 1;
+                  background: #000;
+                  border-radius: 10px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  position: relative;
+                  overflow: hidden;
+                  cursor: pointer;
+                "
+                onclick="document.getElementById('ct-file-input').click()"
+              >
+                <div
+                  id="ct-drop-hint"
+                  style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                    color: var(--text2);
+                    pointer-events: none;
+                  "
+                >
+                  <div style="font-size: 40px">🎬</div>
+                  <div style="font-size: 14px">点击或拖拽视频到此处</div>
+                  <div style="font-size: 12px">
+                    支持 mp4 / webm / mkv / mov 等
+                  </div>
+                </div>
+                <video
+                  id="ct-video"
+                  style="
+                    display: none;
+                    max-width: 100%;
+                    max-height: 100%;
+                    outline: none;
+                  "
+                  tabindex="-1"
+                ></video>
+                <input
+                  type="file"
+                  id="ct-file-input"
+                  accept="video/*"
+                  style="display: none"
+                  onchange="ctLoadFile(this)"
+                />
+              </div>
+
+              <!-- 进度条 -->
+              <div style="margin-top: 10px">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span
+                    id="ct-time-label"
+                    style="
+                      font-size: 12px;
+                      color: var(--text2);
+                      font-variant-numeric: tabular-nums;
+                      min-width: 100px;
+                      white-space: nowrap;
+                    "
+                    >00:00:00.0 / --:--:--</span
+                  >
+                  <div
+                    id="ct-progress-wrap"
+                    style="
+                      position: relative;
+                      flex: 1;
+                      height: 6px;
+                      background: var(--border);
+                      border-radius: 3px;
+                      cursor: pointer;
+                    "
+                  >
+                    <div
+                      id="ct-progress-fill"
+                      style="
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        bottom: 0;
+                        background: var(--accent);
+                        border-radius: 3px;
+                        pointer-events: none;
+                      "
+                    ></div>
+                    <div
+                      id="ct-progress-thumb"
+                      style="
+                        position: absolute;
+                        top: 50%;
+                        width: 13px;
+                        height: 13px;
+                        background: #fff;
+                        border-radius: 50%;
+                        transform: translate(-50%, -50%);
+                        pointer-events: none;
+                        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+                      "
+                    ></div>
+                  </div>
+                </div>
+
+                <!-- 控制按钮 -->
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(-10)">
+                    ⏮ 10s
+                  </button>
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(-1)">
+                    ◀ 1s
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    id="ct-play-btn"
+                    onclick="ctTogglePlay()"
+                  >
+                    ▶ 播放
+                  </button>
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(1)">
+                    1s ▶
+                  </button>
+                  <button class="btn btn-outline btn-sm" onclick="ctSeek(10)">
+                    10s ⏭
+                  </button>
+                  <select
+                    id="ct-speed"
+                    onchange="ctSetSpeed(this.value)"
+                    style="
+                      background: var(--s2);
+                      border: 1px solid var(--border);
+                      border-radius: 8px;
+                      padding: 4px 8px;
+                      font-size: 12px;
+                      cursor: pointer;
+                      color: var(--text);
+                    "
+                  >
+                    <option value="0.25">0.25×</option>
+                    <option value="0.5">0.5×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="1.5">1.5×</option>
+                    <option value="2">2×</option>
+                  </select>
+                  <button
+                    class="btn btn-sm"
+                    style="background: #d97706; color: #fff"
+                    onclick="ctAddMarker()"
+                  >
+                    📍 打标记 (M)
+                  </button>
+                  <span
+                    style="
+                      font-size: 11px;
+                      color: var(--text2);
+                      margin-left: auto;
+                    "
+                  >
+                    <kbd
+                      style="
+                        background: var(--s2);
+                        border: 1px solid var(--border);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-size: 11px;
+                      "
+                      >Space</kbd
+                    >
+                    播放
+                    <kbd
+                      style="
+                        background: var(--s2);
+                        border: 1px solid var(--border);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-size: 11px;
+                      "
+                      >←→</kbd
+                    >
+                    ±0.1s
+                    <kbd
+                      style="
+                        background: var(--s2);
+                        border: 1px solid var(--border);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-size: 11px;
+                      "
+                      >Shift+←→</kbd
+                    >
+                    ±1s
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右：标记列表 -->
+            <div
+              style="
+                width: 260px;
+                display: flex;
+                flex-direction: column;
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                overflow: hidden;
+              "
+            >
+              <!-- 文案解析区 -->
+              <div style="border-bottom: 1px solid var(--border);">
+                <div
+                  onclick="ctToggleScript()"
+                  style="display:flex;align-items:center;justify-content:space-between;
+                         padding:10px 14px;cursor:pointer;user-select:none;font-size:13px;font-weight:600;"
+                >
+                  <span>📋 文案解析</span>
+                  <span id="ct-script-icon" style="font-size:11px;color:var(--text2);font-weight:400">▼</span>
+                </div>
+                <div id="ct-script-body" style="display:none;padding:0 10px 10px;flex-direction:column;gap:6px;">
+                  <textarea
+                    id="ct-script-input"
+                    style="width:100%;height:100px;background:var(--s2);border:1.5px solid var(--border);
+                           border-radius:8px;color:var(--text);font-size:12px;padding:8px;resize:vertical;
+                           outline:none;font-family:inherit;line-height:1.6;"
+                    placeholder="粘贴文案，如：
+第 1 片段：[00:00] – [01:04]
+第 2 片段：[01:04] – [02:10]
+支持 [MM:SS] / [HH:MM:SS]"
+                  ></textarea>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="btn btn-outline btn-sm" onclick="ctParseScript()" style="font-size:11px">📌 解析填入标记</button>
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('ct-script-input').value='';document.getElementById('ct-script-msg').textContent=''" style="font-size:11px">清空</button>
+                  </div>
+                  <div id="ct-script-msg" style="font-size:11px;"></div>
+                </div>
+              </div>
+
+              <div
+                style="
+                  padding: 12px 14px;
+                  border-bottom: 1px solid var(--border);
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                "
+              >
+                <span style="font-size: 13px; font-weight: 600; flex: 1"
+                  >时间标记</span
+                >
+                <span
+                  id="ct-badge"
+                  style="
+                    background: var(--accent);
+                    color: #fff;
+                    border-radius: 10px;
+                    padding: 1px 8px;
+                    font-size: 11px;
+                  "
+                  >0</span
+                >
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="ctClearMarkers()"
+                >
+                  清空
+                </button>
+              </div>
+              <div
+                id="ct-marker-list"
+                style="flex: 1; overflow-y: auto; padding: 8px"
+              >
+                <div
+                  style="
+                    text-align: center;
+                    color: var(--text2);
+                    font-size: 13px;
+                    margin-top: 40px;
+                  "
+                >
+                  加载视频后按 M 打标记
+                </div>
+              </div>
+              <div
+                style="
+                  padding: 10px 14px;
+                  border-top: 1px solid var(--border);
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                "
+              >
+                <div style="font-size: 12px; color: var(--text2)">
+                  输出目录（留空 = 与视频同目录）
+                </div>
+                <input
+                  type="text"
+                  id="ct-output-dir"
+                  placeholder="自动"
+                  style="
+                    background: var(--s2);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    padding: 6px 10px;
+                    font-size: 12px;
+                    outline: none;
+                    color: var(--text);
+                  "
+                />
+                <div
+                  id="ct-cut-hint"
+                  style="font-size: 11px; color: var(--text2)"
+                >
+                  至少打 2 个标记再切割
+                </div>
+                <button
+                  class="btn btn-primary btn-sm"
+                  id="ct-cut-btn"
+                  onclick="ctStartCut()"
+                  disabled
+                >
+                  ✂️ 开始切割
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 进度弹窗 -->
+          <div
+            id="ct-overlay"
+            style="
+              display: none;
+              position: fixed;
+              inset: 0;
+              background: rgba(0, 0, 0, 0.5);
+              z-index: 200;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <div
+              style="
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 24px;
+                width: 420px;
+                max-height: 80vh;
+                overflow-y: auto;
+              "
+            >
+              <h3
+                id="ct-modal-title"
+                style="font-size: 15px; margin-bottom: 12px"
+              >
+                ⚙️ 切割进行中...
+              </h3>
+              <div
+                style="
+                  height: 4px;
+                  background: var(--border);
+                  border-radius: 2px;
+                  margin-bottom: 14px;
+                  overflow: hidden;
+                "
+              >
+                <div
+                  id="ct-overall-fill"
+                  style="
+                    height: 100%;
+                    background: var(--green);
+                    border-radius: 2px;
+                    transition: width 0.3s;
+                    width: 0%;
+                  "
+                ></div>
+              </div>
+              <pre
+                id="ct-modal-log"
+                style="
+                  background: var(--s2);
+                  border-radius: 8px;
+                  padding: 10px;
+                  font-size: 12px;
+                  color: var(--text3);
+                  max-height: 280px;
+                  overflow-y: auto;
+                  white-space: pre-wrap;
+                  word-break: break-all;
+                "
+              ></pre>
+              <div style="margin-top: 14px; text-align: right">
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="
+                    document.getElementById('ct-overlay').style.display = 'none'
+                  "
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Settings ── -->
+        <div class="page" id="page-settings">
+          <div class="page-title">设置</div>
+
+          <div class="card setting-section">
+            <div class="card-title">YouTube Cookies 状态</div>
+            <div style="margin-bottom: 12px">
+              <div class="status-pill pill-err" id="cookie-pill">检测中…</div>
+            </div>
+            <p
+              style="
+                font-size: 12px;
+                color: var(--text2);
+                line-height: 1.75;
+                margin-bottom: 14px;
+              "
+            >
+              YouTube 需要登录状态才能解析和下载视频。Cookies
+              会定期轮换，失效后重新导出即可。
+            </p>
+
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--text3);
+                margin-bottom: 8px;
+              "
+            >
+              方式一：插件导出（推荐）
+            </div>
+            <p
+              style="
+                font-size: 12px;
+                color: var(--text2);
+                line-height: 1.8;
+                margin-bottom: 12px;
+              "
+            >
+              1. 安装
+              <a
+                href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
+                target="_blank"
+                style="color: var(--accent)"
+                >Get cookies.txt LOCALLY</a
+              >（Chrome/Edge）<br />
+              2. 打开 youtube.com 并登录账号<br />
+              3. 点插件图标 → Export → 保存文件<br />
+              4. 点下方按钮上传
+            </p>
+            <input
+              type="file"
+              id="ck-file"
+              accept=".txt"
+              style="display: none"
+              onchange="uploadCookies(this)"
+            />
+            <button
+              class="btn btn-primary btn-sm"
+              onclick="document.getElementById('ck-file').click()"
+            >
+              上传 cookies.txt
+            </button>
+
+            <hr class="divider" />
+
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--text3);
+                margin-bottom: 8px;
+              "
+            >
+              方式二：从浏览器直接导出
+            </div>
+            <p
+              style="font-size: 12px; color: var(--text2); margin-bottom: 12px"
+            >
+              ⚠️ 操作时需完全关闭浏览器，否则数据库被占用会失败。
+            </p>
+            <div style="display: flex; gap: 8px">
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="cookiesFromBrowser('chrome')"
+              >
+                Chrome
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="cookiesFromBrowser('edge')"
+              >
+                Edge
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="cookiesFromBrowser('firefox')"
+              >
+                Firefox
+              </button>
+            </div>
+          </div>
+
+          <div class="card setting-section">
+            <div class="card-title">下载目录</div>
+            <p
+              style="
+                font-size: 12px;
+                color: var(--text2);
+                margin-bottom: 12px;
+                line-height: 1.75;
+              "
+            >
+              指定视频文件的保存位置。留空则使用程序目录下的
+              <code>downloads/</code> 文件夹。<br />
+              请输入绝对路径，例如 <code>D:\Videos</code> 或
+              <code>C:\Users\你的名字\Downloads</code>。
+            </p>
+            <div style="display: flex; gap: 8px; align-items: center">
+              <input
+                type="text"
+                id="dl-dir-input"
+                class="url-input"
+                style="height: 38px; font-size: 13px"
+                placeholder="留空使用默认目录（./downloads/）"
+              />
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="saveDlDir()"
+                style="height: 38px; white-space: nowrap"
+              >
+                保存
+              </button>
+            </div>
+            <div
+              id="dl-dir-status"
+              style="
+                margin-top: 8px;
+                font-size: 12px;
+                color: var(--text2);
+                display: none;
+              "
+            ></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">运行环境</div>
+            <dl class="info-grid">
+              <dt>JS 运行时</dt>
+              <dd><code>Node.js</code></dd>
+              <dt>yt-dlp</dt>
+              <dd><code>./yt-dlp.exe</code></dd>
+              <dt>ffmpeg</dt>
+              <dd><code>./ffmpeg.exe</code></dd>
+              <dt>当前下载目录</dt>
+              <dd><code id="info-dl-dir">加载中…</code></dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      let curUrl = "",
+        selFmt = "bestvideo+bestaudio/best";
+      let curTaskId = null,
+        pollTimer = null,
+        allTasks = {};
+
+      function nav(page, el) {
+        document
+          .querySelectorAll(".page")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".nav-item")
+          .forEach((n) => n.classList.remove("active"));
+        document.getElementById("page-" + page).classList.add("active");
+        el.classList.add("active");
+        if (page === "tasks") renderTasks();
+        if (page === "files") loadFiles();
+        if (page === "settings") loadCookieStatus();
+        if (page === "dewatermark") loadDwFiles();
+        if (page === "publish") {
+          loadPublishStatus();
+          loadPubFiles();
+        }
+      }
+
+      function toast(msg, type = "ok") {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.className = `toast show ${type}`;
+        clearTimeout(t._t);
+        t._t = setTimeout(() => t.classList.remove("show"), 3000);
+      }
+
+      // Cookie status
+      async function loadCookieStatus() {
+        try {
+          const d = await api("GET", "/api/cookies-status");
+          const pill = document.getElementById("cookie-pill");
+          const dot = document.getElementById("sb-dot");
+          const lbl = document.getElementById("sb-label");
+          if (d.exists) {
+            pill.className = "status-pill pill-ok";
+            pill.textContent = "✓ Cookies 已配置";
+            dot.className = "ck-dot ok";
+            lbl.textContent = "Cookies 有效";
+          } else {
+            pill.className = "status-pill pill-err";
+            pill.textContent = "✗ 未配置 Cookies";
+            dot.className = "ck-dot";
+            lbl.textContent = "Cookies 未配置";
+          }
+        } catch {}
+        // 同步加载下载目录设置
+        try {
+          const s = await api("GET", "/api/settings");
+          const defaultDir = s.download_dir || "";
+          const input = document.getElementById("dl-dir-input");
+          const infoEl = document.getElementById("info-dl-dir");
+          if (input) input.value = defaultDir;
+          if (infoEl) infoEl.textContent = defaultDir || "./downloads/";
+        } catch {}
+      }
+
+      async function saveDlDir() {
+        const input = document.getElementById("dl-dir-input");
+        const statusEl = document.getElementById("dl-dir-status");
+        const val = (input.value || "").trim();
+        statusEl.style.display = "none";
+        try {
+          const res = await api("POST", "/api/settings", { download_dir: val });
+          if (res.error) {
+            statusEl.textContent = "❌ " + res.error;
+            statusEl.style.color = "var(--red)";
+          } else {
+            const saved = res.settings?.download_dir || "";
+            const infoEl = document.getElementById("info-dl-dir");
+            if (infoEl) infoEl.textContent = saved || "./downloads/";
+            input.value = saved;
+            statusEl.textContent = "✓ 已保存：" + (saved || "默认目录 ./downloads/");
+            statusEl.style.color = "var(--green)";
+            toast("下载目录已更新", "ok");
+          }
+        } catch (e) {
+          statusEl.textContent = "❌ 保存失败：" + e.message;
+          statusEl.style.color = "var(--red)";
+        }
+        statusEl.style.display = "block";
+      }
+
+      loadCookieStatus();
+
+      // Parse
+      async function fetchInfo() {
+        const url = document.getElementById("url-input").value.trim();
+        if (!url) return toast("请输入 URL", "err");
+        curUrl = url;
+        hide("err-box");
+        hide("video-card");
+        hide("fmt-card");
+        hide("opt-card");
+        hide("prog-card");
+        const btn = document.getElementById("parse-btn");
+        btn.disabled = true;
+        btn.textContent = "解析中…";
+        try {
+          const d = await api("POST", "/api/formats", { url });
+          if (d.error) {
+            showErr(d.error);
+            return;
+          }
+          // video info
+          document.getElementById("v-thumb").src = d.thumbnail || "";
+          document.getElementById("v-title").textContent =
+            d.title || "未知标题";
+          document.getElementById("v-meta").textContent = [
+            d.uploader,
+            d.duration ? fmtDur(d.duration) : "",
+          ]
+            .filter(Boolean)
+            .join("  ·  ");
+          show("video-card");
+          // formats
+          renderFmts(d.formats || []);
+          show("fmt-card");
+          show("opt-card");
+        } catch (e) {
+          showErr("无法连接到后端，请确认 app.py 正在运行\n" + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "解析";
+        }
+      }
+
+      function renderFmts(fmts) {
+        const tb = document.getElementById("fmt-tbody");
+        if (!fmts.length) {
+          tb.innerHTML =
+            '<tr><td colspan="8" style="text-align:center;padding:18px;color:#9ca3af">暂无格式数据</td></tr>';
+          return;
+        }
+        tb.innerHTML = fmts
+          .map((f) => {
+            const isV = f.vcodec && f.vcodec !== "none",
+              isA = f.acodec && f.acodec !== "none";
+            const badge =
+              isV && isA
+                ? '<span class="badge bav">AV</span>'
+                : isV
+                  ? '<span class="badge bv">V</span>'
+                  : '<span class="badge ba">A</span>';
+            return `<tr onclick="selFmtRow('${f.format_id}',this)">
+      <td><input type="radio" name="fmt" value="${f.format_id}"></td>
+      <td><code>${f.format_id}</code></td>
+      <td>${f.ext || "—"}</td>
+      <td>${f.resolution || f.format_note || "—"}</td>
+      <td>${f.fps ? f.fps + "fps" : "—"}</td>
+      <td>${badge}</td>
+      <td>${f.tbr ? Math.round(f.tbr) + "k" : "—"}</td>
+      <td>${f.filesize ? fmtSize(f.filesize) : "—"}</td>
+    </tr>`;
+          })
+          .join("");
+      }
+
+      function pickChip(el, fmt) {
+        selFmt = fmt;
+        document
+          .querySelectorAll(".chip")
+          .forEach((c) => c.classList.remove("on"));
+        el.classList.add("on");
+        hide("fmt-wrap");
+        document
+          .querySelectorAll("#fmt-tbody tr")
+          .forEach((r) => r.classList.remove("sel"));
+      }
+
+      function toggleFmt(el) {
+        const w = document.getElementById("fmt-wrap");
+        const open = w.style.display !== "none";
+        document
+          .querySelectorAll(".chip")
+          .forEach((c) => c.classList.remove("on"));
+        if (open) {
+          hide("fmt-wrap");
+        } else {
+          el.classList.add("on");
+          show("fmt-wrap");
+        }
+      }
+
+      function selFmtRow(id, row) {
+        selFmt = id;
+        document
+          .querySelectorAll("#fmt-tbody tr")
+          .forEach((r) => r.classList.remove("sel"));
+        row.classList.add("sel");
+        row.querySelector("input[type=radio]").checked = true;
+        document
+          .querySelectorAll(".chip")
+          .forEach((c) => c.classList.remove("on"));
+        document.getElementById("chip-custom").classList.add("on");
+      }
+
+      function buildArgs() {
+        const args = [];
+        const merge = document.getElementById("merge-fmt").value;
+        if (merge) {
+          if (["mp3", "m4a", "ogg", "flac"].includes(merge))
+            args.push("--extract-audio", "--audio-format", merge);
+          else args.push("--merge-output-format", merge);
+        }
+        const sub = document.getElementById("sub-opt").value;
+        if (sub) args.push(sub);
+        const rate = document.getElementById("rate-limit").value.trim();
+        if (rate) args.push("-r", rate);
+        return args;
+      }
+
+      function getEffectiveFmt() {
+        const withAudio = document.getElementById("include-audio").checked;
+        if (withAudio) return selFmt; // 用户选的画质，含音频
+        // 把 bestvideo+bestaudio/best 等含音频的 format 替换成纯视频
+        const f = selFmt;
+        if (f === "bestvideo+bestaudio/best") return "bestvideo/best";
+        if (f.includes("+bestaudio")) return f.replace(/\+bestaudio/g, "");
+        if (f === "bestaudio/best") return f; // 仅音频模式原样保留
+        // 自定义 format id 直接用，加 --no-audio 参数方式
+        return f;
+      }
+
+      function previewCmd() {
+        if (!curUrl) return toast("请先解析 URL", "err");
+        const cmd = [
+          "yt-dlp",
+          "-f",
+          `"${getEffectiveFmt()}"`,
+          "-o",
+          `"downloads/${document.getElementById("out-tpl").value}"`,
+          ...buildArgs(),
+          `"${curUrl}"`,
+        ].join(" ");
+        const box = document.getElementById("cmd-box");
+        box.textContent = cmd;
+        show("cmd-box");
+      }
+
+      async function startDownload() {
+        if (!curUrl) return toast("请先解析 URL", "err");
+        const btn = document.getElementById("dl-btn");
+        btn.disabled = true;
+        document.getElementById("prog-fill").style.width = "0%";
+        document.getElementById("prog-pct").textContent = "0%";
+        document.getElementById("prog-speed").textContent = "";
+        document.getElementById("prog-eta").textContent = "";
+        document.getElementById("prog-log").textContent = "";
+        show("prog-card");
+        document
+          .getElementById("prog-card")
+          .scrollIntoView({ behavior: "smooth" });
+        try {
+          const d = await api("POST", "/api/download", {
+            url: curUrl,
+            format_id: getEffectiveFmt(),
+            output: document.getElementById("out-tpl").value,
+            extra_args: buildArgs(),
+          });
+          if (d.error) {
+            toast(d.error, "err");
+            btn.disabled = false;
+            return;
+          }
+          curTaskId = d.task_id;
+          allTasks[d.task_id] = { url: curUrl, status: "running" };
+          pollProgress(d.task_id);
+        } catch (e) {
+          toast("启动失败: " + e.message, "err");
+          btn.disabled = false;
+        }
+      }
+
+      function pollProgress(id) {
+        clearInterval(pollTimer);
+        pollTimer = setInterval(async () => {
+          try {
+            const d = await api("GET", `/api/task/${id}`);
+            const pct = d.progress || 0;
+            document.getElementById("prog-fill").style.width = pct + "%";
+            document.getElementById("prog-pct").textContent =
+              Math.round(pct) + "%";
+            document.getElementById("prog-speed").textContent = d.speed
+              ? "⚡ " + d.speed
+              : "";
+            document.getElementById("prog-eta").textContent = d.eta
+              ? "⏱ " + d.eta
+              : "";
+            const log = document.getElementById("prog-log");
+            log.textContent = (d.output || []).join("\n");
+            log.scrollTop = log.scrollHeight;
+            allTasks[id] = { url: curUrl, status: d.status, progress: pct };
+            if (d.status === "done" || d.status === "error") {
+              clearInterval(pollTimer);
+              document.getElementById("dl-btn").disabled = false;
+              if (d.status === "done") {
+                toast("✓ 下载完成");
+                document.getElementById("prog-fill").style.width = "100%";
+                document.getElementById("prog-pct").textContent = "100%";
+              } else {
+                toast("下载失败，请查看日志", "err");
+              }
+            }
+          } catch {}
+        }, 800);
+      }
+
+      function renderTasks() {
+        const list = document.getElementById("tasks-list");
+        const entries = Object.entries(allTasks);
+        if (!entries.length) {
+          list.innerHTML = '<div class="empty">暂无任务</div>';
+          return;
+        }
+        list.innerHTML = entries
+          .slice()
+          .reverse()
+          .map(([id, t]) => {
+            const cls =
+              { running: "dot-run", done: "dot-done", error: "dot-err" }[
+                t.status
+              ] || "dot-err";
+            const label =
+              { running: "下载中", done: "已完成", error: "失败" }[t.status] ||
+              t.status;
+            return `<div class="task-card">
+      <div class="t-dot ${cls}"></div>
+      <div class="t-body">
+        <div class="t-url">${esc(t.url || id)}</div>
+        <div class="t-sub">${label}${t.progress ? " · " + Math.round(t.progress) + "%" : ""} · ${id.slice(0, 8)}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="height:30px;padding:0 10px" onclick="viewTask('${id}')">查看</button>
+    </div>`;
+          })
+          .join("");
+      }
+
+      function viewTask(id) {
+        curTaskId = id;
+        document.querySelectorAll(".nav-item")[0].click();
+        show("prog-card");
+        pollProgress(id);
+      }
+
+      async function openFolder() {
+        await api("POST", "/api/open-folder");
+      }
+
+      async function loadFiles() {
+        const list = document.getElementById("files-list");
+        list.innerHTML = '<div class="empty">加载中…</div>';
+        try {
+          const d = await api("GET", "/api/downloads");
+          const files = d.files || [];
+          if (!files.length) {
+            list.innerHTML = '<div class="empty">downloads 目录暂无文件</div>';
+            return;
+          }
+          list.innerHTML = files
+            .map(
+              (f) => `
+      <div class="file-row">
+        <span class="f-icon">${fileIcon(f.name)}</span>
+        <span class="f-name" title="${esc(f.name)}">${esc(f.name)}</span>
+        <span class="f-size">${fmtSize(f.size)}</span>
+      </div>`,
+            )
+            .join("");
+        } catch {
+          list.innerHTML = '<div class="empty">加载失败</div>';
+        }
+      }
+
+      async function uploadCookies(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append("file", file);
+        try {
+          const r = await fetch("/api/upload-cookies", {
+            method: "POST",
+            body: fd,
+          });
+          const d = await r.json();
+          if (d.ok) {
+            toast("✓ " + d.msg);
+            loadCookieStatus();
+          } else toast("✗ " + d.msg, "err");
+        } catch (e) {
+          toast("上传失败", "err");
+        }
+      }
+
+      async function cookiesFromBrowser(browser) {
+        toast(`正在从 ${browser} 导出…`);
+        const d = await api("POST", "/api/cookies-from-browser", { browser });
+        if (d.ok) {
+          toast("✓ " + d.msg);
+          loadCookieStatus();
+        } else toast("✗ " + d.msg, "err");
+      }
+
+      function showErr(msg) {
+        let hint = "";
+        if (msg.includes("Sign in") || msg.includes("bot"))
+          hint = "\n\n💡 请前往「设置」配置 Cookies";
+        else if (
+          msg.includes("Unsupported URL") ||
+          msg.includes("Unable to extract")
+        )
+          hint = "\n\n💡 链接可能不受支持";
+        const box = document.getElementById("err-box");
+        box.textContent = msg + hint;
+        show("err-box");
+        toast("解析失败", "err");
+      }
+
+      async function api(method, path, body) {
+        const opts = { method, headers: {} };
+        if (body) {
+          opts.headers["Content-Type"] = "application/json";
+          opts.body = JSON.stringify(body);
+        }
+        return (await fetch(path, opts)).json();
+      }
+      function show(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = "";
+      }
+      function hide(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = "none";
+      }
+      function esc(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+      function fmtSize(b) {
+        if (!b) return "—";
+        if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
+        if (b < 1073741824) return (b / 1048576).toFixed(1) + " MB";
+        return (b / 1073741824).toFixed(2) + " GB";
+      }
+      function fmtDur(s) {
+        const h = Math.floor(s / 3600),
+          m = Math.floor((s % 3600) / 60),
+          sec = s % 60;
+        return h
+          ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+          : `${m}:${String(sec).padStart(2, "0")}`;
+      }
+      function fileIcon(n) {
+        const e = n.split(".").pop().toLowerCase();
+        if (["mp4", "mkv", "webm", "avi", "mov"].includes(e)) return "🎬";
+        if (["mp3", "m4a", "aac", "ogg", "flac", "opus"].includes(e))
+          return "🎵";
+        return "📄";
+      }
+
+      document.getElementById("url-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") fetchInfo();
+      });
+      document.getElementById("pipe-url").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") startPipeline();
+      });
+      document
+        .getElementById("crawl-keyword")
+        .addEventListener("keydown", (e) => {
+          if (e.key === "Enter") startCrawl();
+        });
+
+      // ── Crawl ──
+      let crawlPollTimer = null;
+
+      async function startCrawl() {
+        const keyword = document.getElementById("crawl-keyword").value.trim();
+        if (!keyword) return toast("请输入关键词", "err");
+        const count = parseInt(document.getElementById("crawl-count").value);
+        const btn = document.getElementById("crawl-btn");
+        btn.disabled = true;
+
+        document.getElementById("crawl-log").textContent = "";
+        document.getElementById("crawl-error").style.display = "none";
+        document.getElementById("crawl-processed").textContent = "0";
+        document.getElementById("crawl-skipped").textContent = "0";
+        document.getElementById("crawl-progress-card").style.display = "";
+        document.getElementById("crawl-results-wrap").style.display = "none";
+        document.getElementById("crawl-result-list").innerHTML = "";
+
+        try {
+          const d = await api("POST", "/api/crawl/start", { keyword, count });
+          if (d.error) {
+            showCrawlErr(d.error);
+            btn.disabled = false;
+            return;
+          }
+          crawlPollTimer = setInterval(() => pollCrawl(d.task_id), 1200);
+        } catch (e) {
+          showCrawlErr("启动失败: " + e.message);
+          btn.disabled = false;
+        }
+      }
+
+      async function pollCrawl(id) {
+        try {
+          const d = await api("GET", "/api/crawl/task/" + id);
+          const logEl = document.getElementById("crawl-log");
+          if (d.logs) {
+            logEl.textContent = d.logs.join("\n");
+            logEl.scrollTop = logEl.scrollHeight;
+          }
+          document.getElementById("crawl-processed").textContent =
+            d.processed || 0;
+          document.getElementById("crawl-skipped").textContent =
+            d.skipped_wm || 0;
+
+          // 实时渲染结果卡片
+          if (d.results && d.results.length) {
+            renderCrawlResults(d.results);
+          }
+
+          if (d.status === "done" || d.status === "error") {
+            clearInterval(crawlPollTimer);
+            document.getElementById("crawl-btn").disabled = false;
+            if (d.status === "done") {
+              toast("✓ 检测完成");
+              loadCrawlHistCount();
+            } else {
+              showCrawlErr(d.error || "未知错误");
+            }
+          }
+        } catch {}
+      }
+
+      function renderCrawlResults(results) {
+        const wrap = document.getElementById("crawl-results-wrap");
+        const list = document.getElementById("crawl-result-list");
+        const count = document.getElementById("crawl-result-count");
+        wrap.style.display = "";
+        const noWm = results.filter((r) => !r.has_watermark).length;
+        count.textContent = `共 ${results.length} 个，其中 ${noWm} 个无水印`;
+        list.innerHTML = results
+          .map((r) => {
+            const wmTag = r.has_watermark
+              ? `<span style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 7px;font-size:11px">⚠️ 有水印</span>`
+              : `<span style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:4px;padding:2px 7px;font-size:11px">✅ 无水印</span>`;
+            const dur = r.duration
+              ? `${Math.floor(r.duration / 60)}:${String(r.duration % 60).padStart(2, "0")}`
+              : "--";
+            const thumb = r.thumbnail
+              ? `<img src="${esc(r.thumbnail)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px 8px 0 0;display:block">`
+              : `<div style="width:100%;height:140px;background:var(--s2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px">🎬</div>`;
+            return `
+            <div style="background:var(--white);border:1.5px solid ${r.has_watermark ? "#fca5a5" : "var(--border)"};border-radius:10px;overflow:hidden">
+              ${thumb}
+              <div style="padding:10px 12px">
+                <div style="font-size:13px;font-weight:500;line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(r.title)}</div>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                  ${wmTag}
+                  <span style="font-size:11px;color:var(--text2)">⏱ ${dur}</span>
+                  ${r.uploader ? `<span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.uploader)}</span>` : ""}
+                </div>
+                <div style="display:flex;gap:6px">
+                  <a href="${esc(r.url)}" target="_blank" class="btn btn-outline btn-sm" style="flex:1;text-align:center;text-decoration:none;font-size:12px">🔗 打开</a>
+                  <button class="btn btn-sm btn-outline" style="font-size:12px" onclick="navigator.clipboard.writeText('${r.url.replace(/'/g, "\\'")}').then(()=>toast('已复制'))">📋 复制链接</button>
+                  ${!r.has_watermark ? `<button class="btn btn-primary btn-sm" style="font-size:12px" onclick="copyToDownload('${r.url.replace(/'/g, "\\'")}')">⬇ 去下载</button>` : ""}
+                </div>
+              </div>
+            </div>`;
+          })
+          .join("");
+      }
+
+      function copyToDownload(url) {
+        document.getElementById("url-input").value = url;
+        nav("download", document.querySelectorAll(".nav-item")[0]);
+        toast("链接已填入下载页");
+      }
+
+      function showCrawlErr(msg) {
+        const el = document.getElementById("crawl-error");
+        el.style.display = "";
+        el.textContent = "❌ " + msg;
+        toast("检测失败", "err");
+      }
+
+      async function loadCrawlHistCount() {
+        try {
+          const d = await api("GET", "/api/crawl/history");
+          const el = document.getElementById("crawl-hist-count");
+          if (el) el.textContent = `历史共 ${d.count} 条`;
+        } catch {}
+      }
+
+      async function showCrawlHistory() {
+        const d = await api("GET", "/api/crawl/history");
+        const list = document.getElementById("crawl-hist-list");
+        if (!d.items || !d.items.length) {
+          list.innerHTML =
+            '<div style="text-align:center;color:var(--text2);padding:20px">暂无历史记录</div>';
+        } else {
+          list.innerHTML = d.items
+            .map(
+              (item) => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
+              <span style="font-size:11px;${item.has_watermark ? "color:#dc2626" : "color:#16a34a"}">${item.has_watermark ? "⚠️" : "✅"}</span>
+              <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.title)}">${esc(item.title)}</span>
+              <span style="font-size:11px;color:var(--text2);white-space:nowrap">${item.ts || ""}</span>
+              <a href="${esc(item.url)}" target="_blank" style="font-size:11px;color:var(--accent)">打开</a>
+            </div>`,
+            )
+            .join("");
+        }
+        document.getElementById("crawl-hist-overlay").style.display = "flex";
+      }
+
+      async function clearCrawlHistory() {
+        if (!confirm("确定清空所有历史记录？清空后下次抓取不再去重。")) return;
+        await api("POST", "/api/crawl/history/clear");
+        toast("历史记录已清空");
+        loadCrawlHistCount();
+      }
+
+      // 页面加载时获取历史数量
+      loadCrawlHistCount();
+
+      // ── Publish ──
+      let pubPollTimer = null;
+
+      async function loadPublishStatus() {
+        try {
+          const d = await api("GET", "/api/publish/status");
+          const el = document.getElementById("platform-status");
+          const icons = {
+            douyin: "🎵",
+            bilibili: "📺",
+            wechat: "💚",
+            xiaohongshu: "📕",
+          };
+          el.innerHTML = Object.entries(d)
+            .map(
+              ([key, info]) => `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;border:1.5px solid ${info.logged_in ? "var(--green)" : "var(--border)"};border-radius:10px;text-align:center">
+              <div style="font-size:22px">${icons[key] || "📱"}</div>
+              <div style="font-size:13px;font-weight:600">${info.name}</div>
+              ${
+                info.logged_in
+                  ? `<div style="color:var(--green);font-size:12px">✅ 已登录</div>
+                   <button class="btn btn-outline btn-sm" style="font-size:11px;height:24px;padding:0 8px;margin-top:2px" onclick="loginPlatform('${key}')">重新登录</button>`
+                  : `<button class="btn btn-outline btn-sm" style="font-size:11px;height:28px;padding:0 10px" onclick="loginPlatform('${key}')">点击登录</button>`
+              }
+            </div>`,
+            )
+            .join("");
+        } catch (e) {
+          document.getElementById("platform-status").innerHTML =
+            '<div style="grid-column:span 4;text-align:center;color:var(--text2);padding:16px;font-size:13px">加载失败，请刷新重试</div>';
+        }
+      }
+
+      async function loadPubFiles() {
+        const sel = document.getElementById("pub-file");
+        sel.innerHTML = '<option value="">加载中...</option>';
+        try {
+          const d = await api("GET", "/api/publish/files");
+          const files = d.files || [];
+          if (!files.length) {
+            sel.innerHTML = '<option value="">downloads 目录暂无视频</option>';
+            return;
+          }
+          sel.innerHTML =
+            '<option value="">-- 请选择视频 --</option>' +
+            files
+              .map(
+                (f) =>
+                  `<option value="${esc(f.full)}">${esc(f.rel)} (${fmtSize(f.size)})</option>`,
+              )
+              .join("");
+        } catch (e) {
+          console.error("loadPubFiles error:", e);
+          sel.innerHTML = '<option value="">加载失败</option>';
+        }
+      }
+
+      async function loginPlatform(platform) {
+        toast(`正在打开登录页面...`);
+        try {
+          const d = await api("POST", "/api/publish/login", { platform });
+          if (d.error) {
+            toast(d.error, "err");
+            return;
+          }
+          const timer = setInterval(async () => {
+            const t = await api("GET", "/api/publish/task/" + d.task_id);
+            if (t.status === "done") {
+              clearInterval(timer);
+              toast("✅ 登录成功");
+              loadPublishStatus();
+            } else if (t.status === "error") {
+              clearInterval(timer);
+              toast("登录失败: " + t.error, "err");
+            }
+          }, 2000);
+        } catch (e) {
+          toast("失败: " + e.message, "err");
+        }
+      }
+
+      async function startPublish() {
+        const file = document.getElementById("pub-file").value;
+        const title = document.getElementById("pub-title").value.trim();
+        const desc = document.getElementById("pub-desc").value.trim();
+        const tagsRaw = document.getElementById("pub-tags").value.trim();
+        const tags = tagsRaw
+          ? tagsRaw
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [];
+        const tid = document.getElementById("pub-tid").value;
+        const platforms = [
+          "douyin",
+          "bilibili",
+          "wechat",
+          "xiaohongshu",
+        ].filter((p) => document.getElementById("plat-" + p)?.checked);
+
+        if (!file) return toast("请选择视频文件", "err");
+        if (!title) return toast("请填写标题", "err");
+        if (!platforms.length) return toast("请至少选择一个平台", "err");
+
+        const btn = document.getElementById("pub-btn");
+        btn.disabled = true;
+        document.getElementById("pub-log").textContent = "";
+        document.getElementById("pub-result").style.display = "none";
+        document.getElementById("pub-error").style.display = "none";
+        document.getElementById("pub-progress-card").style.display = "";
+
+        try {
+          const d = await api("POST", "/api/publish/start", {
+            filename: file,
+            title,
+            desc,
+            tags,
+            platforms,
+            tid,
+          });
+          if (d.error) {
+            showPubErr(d.error);
+            btn.disabled = false;
+            return;
+          }
+          pubPollTimer = setInterval(() => pollPublish(d.task_id), 1500);
+        } catch (e) {
+          showPubErr("启动失败: " + e.message);
+          btn.disabled = false;
+        }
+      }
+
+      async function pollPublish(id) {
+        try {
+          const d = await api("GET", "/api/publish/task/" + id);
+          const log = document.getElementById("pub-log");
+          if (d.logs) {
+            log.textContent = d.logs.join("\n");
+            log.scrollTop = log.scrollHeight;
+          }
+          if (d.status === "done") {
+            clearInterval(pubPollTimer);
+            document.getElementById("pub-btn").disabled = false;
+            const res = document.getElementById("pub-result");
+            res.style.display = "";
+            const results = d.results || {};
+            const lines = Object.entries(results).map(([k, v]) => {
+              const name =
+                {
+                  douyin: "抖音",
+                  bilibili: "B站",
+                  wechat: "视频号",
+                  xiaohongshu: "小红书",
+                }[k] || k;
+              return v.success
+                ? `✅ ${name} 发布成功`
+                : `❌ ${name} 失败: ${v.error}`;
+            });
+            res.innerHTML = lines.join("<br>") || "完成";
+            toast("发布完成");
+          } else if (d.status === "error") {
+            clearInterval(pubPollTimer);
+            document.getElementById("pub-btn").disabled = false;
+            showPubErr(d.error || "未知错误");
+          }
+        } catch {}
+      }
+
+      function showPubErr(msg) {
+        const el = document.getElementById("pub-error");
+        el.style.display = "";
+        el.textContent = "❌ " + msg;
+        toast("发布失败", "err");
+      }
+
+      // ── Dewatermark ──
+      let dwMethod = "telea",
+        dwPollTimer = null;
+
+      function pickDwMethod(el, method) {
+        dwMethod = method;
+        document
+          .querySelectorAll("#dw-telea,#dw-ns")
+          .forEach((c) => c.classList.remove("on"));
+        el.classList.add("on");
+      }
+
+      async function loadDwFiles() {
+        const sel = document.getElementById("dw-file");
+        sel.innerHTML = '<option value="">加载中...</option>';
+        try {
+          const d = await api("GET", "/api/dewatermark/files");
+          const files = d.files || [];
+          if (!files.length) {
+            sel.innerHTML = '<option value="">downloads 目录暂无视频</option>';
+            return;
+          }
+          sel.innerHTML =
+            '<option value="">-- 请选择视频 --</option>' +
+            files
+              .map(
+                (f) =>
+                  `<option value="${esc(f.full)}">${esc(f.rel)} (${fmtSize(f.size)})</option>`,
+              )
+              .join("");
+        } catch {
+          sel.innerHTML = '<option value="">加载失败</option>';
+        }
+      }
+
+      async function previewWatermark() {
+        const file = document.getElementById("dw-file").value;
+        if (!file) return toast("请先选择视频文件", "err");
+
+        const btn = document.getElementById("dw-preview-btn");
+        btn.disabled = true;
+        btn.textContent = "检测中...";
+
+        try {
+          const d = await api("POST", "/api/dewatermark/preview", {
+            filename: file,
+          });
+          if (d.error) {
+            toast(d.error, "err");
+            return;
+          }
+
+          const card = document.getElementById("dw-preview-card");
+          const img = document.getElementById("dw-preview-img");
+          card.style.display = "";
+          img.src = "data:image/jpeg;base64," + d.image;
+
+          // 保存后端返回的缩放比例
+          img._scale = d.scale || 1;
+          img._previewW = d.preview_w || 540;
+          img._previewH = d.preview_h || 960;
+
+          img.onload = () => {
+            // autoWm 已经是预览图坐标系，直接用
+            initCanvas(d.watermark, d.scale);
+            if (d.watermark) {
+              const wo = d.watermark_orig;
+              document.getElementById("dw-preview-info").textContent = wo
+                ? `自动检测（原始坐标）：x=${wo.x}, y=${wo.y}, w=${wo.w}, h=${wo.h}  在图上拖拉可重新框选`
+                : "在图上拖拉框出水印区域";
+            } else {
+              document.getElementById("dw-preview-info").textContent =
+                "未检测到明显水印，请在图上拖拉框出水印区域";
+            }
+          };
+          if (img.complete) img.onload();
+        } catch (e) {
+          toast("预览失败: " + e.message, "err");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "🔍 预览检测结果";
+        }
+      }
+
+      // ── 拖拉画框（支持移动+调整大小）──
+      let _canvas, _ctx, _img, _origW, _origH, _scale;
+      let _rect = null;
+      let _drag = null;
+      const HANDLE = 8;
+
+      function initCanvas(autoWm, scale) {
+        _img = document.getElementById("dw-preview-img");
+        _canvas = document.getElementById("dw-canvas");
+        _ctx = _canvas.getContext("2d");
+        _scale = scale || 1;
+
+        const rect = _img.getBoundingClientRect();
+        _canvas.width = rect.width;
+        _canvas.height = rect.height;
+        _canvas.style.width = rect.width + "px";
+        _canvas.style.height = rect.height + "px";
+
+        // _origW/_origH 是预览图的自然尺寸（540 x h）
+        _origW = _img.naturalWidth;
+        _origH = _img.naturalHeight;
+
+        if (autoWm) {
+          // autoWm 已是预览图坐标系，直接映射到 canvas
+          const sx = _canvas.width / _origW;
+          const sy = _canvas.height / _origH;
+          _rect = {
+            x: autoWm.x * sx,
+            y: autoWm.y * sy,
+            w: autoWm.w * sx,
+            h: autoWm.h * sy,
+          };
+          // 换算成原始视频坐标填入输入框
+          _syncToInputs();
+        } else {
+          _rect = null;
+        }
+        drawRect();
+
+        _canvas.onmousedown = onDown;
+        _canvas.onmousemove = onMove;
+        _canvas.onmouseup = onUp;
+        _canvas.onmouseleave = onUp;
+      }
+
+      // canvas坐标 → 原始视频坐标 → 填入输入框
+      function _syncToInputs() {
+        if (!_rect) return;
+        // canvas → 预览图
+        const sx = _origW / _canvas.width;
+        const sy = _origH / _canvas.height;
+        const px = _rect.x * sx,
+          py = _rect.y * sy;
+        const pw = _rect.w * sx,
+          ph = _rect.h * sy;
+        // 预览图 → 原始视频（除以 scale）
+        const vx = Math.round(px / _scale);
+        const vy = Math.round(py / _scale);
+        const vw = Math.round(pw / _scale);
+        const vh = Math.round(ph / _scale);
+        fillInputs(vx, vy, vw, vh);
+        document.getElementById("dw-preview-info").textContent =
+          `原始视频坐标：x=${vx}, y=${vy}, w=${vw}, h=${vh}`;
+      }
+
+      function getPos(e) {
+        const r = _canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+
+      // 判断点击位置：角点 / 边缘内部 / 外部新建
+      function hitTest(px, py) {
+        if (!_rect) return "new";
+        const { x, y, w, h } = _rect;
+        const corners = {
+          tl: [x, y],
+          tr: [x + w, y],
+          bl: [x, y + h],
+          br: [x + w, y + h],
+        };
+        for (const [k, [cx, cy]] of Object.entries(corners)) {
+          if (Math.abs(px - cx) <= HANDLE && Math.abs(py - cy) <= HANDLE)
+            return k;
+        }
+        if (px > x && px < x + w && py > y && py < y + h) return "move";
+        return "new";
+      }
+
+      function getCursor(hit) {
+        return (
+          {
+            tl: "nwse-resize",
+            tr: "nesw-resize",
+            bl: "nesw-resize",
+            br: "nwse-resize",
+            move: "move",
+            new: "crosshair",
+          }[hit] || "crosshair"
+        );
+      }
+
+      function onDown(e) {
+        const p = getPos(e);
+        const hit = hitTest(p.x, p.y);
+        if (hit === "new") {
+          _rect = { x: p.x, y: p.y, w: 0, h: 0 };
+          _drag = {
+            type: "br",
+            startX: p.x,
+            startY: p.y,
+            origRect: { ..._rect },
+          };
+        } else {
+          _drag = {
+            type: hit,
+            startX: p.x,
+            startY: p.y,
+            origRect: { ..._rect },
+          };
+        }
+      }
+
+      function onMove(e) {
+        const p = getPos(e);
+        _canvas.style.cursor = getCursor(hitTest(p.x, p.y));
+        if (!_drag) return;
+
+        const dx = p.x - _drag.startX;
+        const dy = p.y - _drag.startY;
+        const o = _drag.origRect;
+
+        if (_drag.type === "move") {
+          _rect = { x: o.x + dx, y: o.y + dy, w: o.w, h: o.h };
+        } else if (_drag.type === "br") {
+          _rect = {
+            x: o.x,
+            y: o.y,
+            w: Math.max(10, o.w + dx),
+            h: Math.max(10, o.h + dy),
+          };
+        } else if (_drag.type === "tl") {
+          _rect = {
+            x: o.x + dx,
+            y: o.y + dy,
+            w: Math.max(10, o.w - dx),
+            h: Math.max(10, o.h - dy),
+          };
+        } else if (_drag.type === "tr") {
+          _rect = {
+            x: o.x,
+            y: o.y + dy,
+            w: Math.max(10, o.w + dx),
+            h: Math.max(10, o.h - dy),
+          };
+        } else if (_drag.type === "bl") {
+          _rect = {
+            x: o.x + dx,
+            y: o.y,
+            w: Math.max(10, o.w - dx),
+            h: Math.max(10, o.h + dy),
+          };
+        }
+        drawRect();
+        syncInputs();
+      }
+
+      function onUp() {
+        if (_drag) {
+          syncInputs();
+          _drag = null;
+        }
+      }
+
+      function syncInputs() {
+        _syncToInputs();
+      }
+
+      function drawRect() {
+        _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
+        if (!_rect || _rect.w < 2 || _rect.h < 2) return;
+        const { x, y, w, h } = _rect;
+
+        // 半透明遮罩
+        _ctx.fillStyle = "rgba(220,38,38,0.20)";
+        _ctx.fillRect(x, y, w, h);
+        // 红色边框（虚线）
+        _ctx.strokeStyle = "#dc2626";
+        _ctx.lineWidth = 2;
+        _ctx.setLineDash([6, 3]);
+        _ctx.strokeRect(x, y, w, h);
+        _ctx.setLineDash([]);
+
+        // 四个角手柄（白色填充+红色边框）
+        [
+          [x, y],
+          [x + w, y],
+          [x, y + h],
+          [x + w, y + h],
+        ].forEach(([hx, hy]) => {
+          _ctx.fillStyle = "white";
+          _ctx.fillRect(hx - HANDLE / 2, hy - HANDLE / 2, HANDLE, HANDLE);
+          _ctx.strokeStyle = "#dc2626";
+          _ctx.lineWidth = 2;
+          _ctx.strokeRect(hx - HANDLE / 2, hy - HANDLE / 2, HANDLE, HANDLE);
+        });
+
+        // 中心十字提示可移动
+        _ctx.strokeStyle = "rgba(220,38,38,0.6)";
+        _ctx.lineWidth = 1;
+        _ctx.setLineDash([3, 3]);
+        _ctx.beginPath();
+        _ctx.moveTo(x + w / 2 - 10, y + h / 2);
+        _ctx.lineTo(x + w / 2 + 10, y + h / 2);
+        _ctx.moveTo(x + w / 2, y + h / 2 - 10);
+        _ctx.lineTo(x + w / 2, y + h / 2 + 10);
+        _ctx.stroke();
+        _ctx.setLineDash([]);
+      }
+
+      function fillInputs(x, y, w, h) {
+        document.getElementById("dw-x").value = x;
+        document.getElementById("dw-y").value = y;
+        document.getElementById("dw-w").value = w;
+        document.getElementById("dw-h").value = h;
+      }
+
+      async function startDewatermark() {
+        const file = document.getElementById("dw-file").value;
+        if (!file) return toast("请先选择视频文件", "err");
+
+        const x = parseInt(document.getElementById("dw-x").value) || 0;
+        const y = parseInt(document.getElementById("dw-y").value) || 0;
+        const w = parseInt(document.getElementById("dw-w").value) || 0;
+        const h = parseInt(document.getElementById("dw-h").value) || 0;
+
+        const btn = document.getElementById("dw-btn");
+        btn.disabled = true;
+
+        // reset
+        document.getElementById("dw-log").textContent = "";
+        document.getElementById("dw-result").style.display = "none";
+        document.getElementById("dw-error").style.display = "none";
+        document.getElementById("dw-fill").style.width = "0%";
+        document.getElementById("dw-pct").textContent = "0%";
+        document.getElementById("dw-progress-card").style.display = "";
+
+        try {
+          const d = await api("POST", "/api/dewatermark/start", {
+            filename: file,
+            method: dwMethod,
+            x,
+            y,
+            w,
+            h,
+          });
+          if (d.error) {
+            showDwErr(d.error);
+            btn.disabled = false;
+            return;
+          }
+
+          dwPollTimer = setInterval(() => pollDewatermark(d.task_id), 1000);
+        } catch (e) {
+          showDwErr("启动失败: " + e.message);
+          btn.disabled = false;
+        }
+      }
+
+      async function pollDewatermark(id) {
+        try {
+          const d = await api("GET", "/api/dewatermark/task/" + id);
+          const log = document.getElementById("dw-log");
+          if (d.logs) {
+            log.textContent = d.logs.join("\n");
+            log.scrollTop = log.scrollHeight;
+          }
+
+          const pct = d.progress || 0;
+          document.getElementById("dw-fill").style.width = pct + "%";
+          document.getElementById("dw-pct").textContent = pct + "%";
+
+          if (d.status === "done") {
+            clearInterval(dwPollTimer);
+            document.getElementById("dw-btn").disabled = false;
+            const res = document.getElementById("dw-result");
+            res.style.display = "";
+            res.innerHTML = `✅ 去水印完成！<br>🎬 输出文件：<code>${esc(d.output_file)}</code>`;
+            if (d.watermark) {
+              const wm = d.watermark;
+              res.innerHTML += `<br>📍 水印坐标：x=${wm.x}, y=${wm.y}, w=${wm.w}, h=${wm.h}`;
+            }
+            toast("✓ 去水印完成");
+          } else if (d.status === "error") {
+            clearInterval(dwPollTimer);
+            document.getElementById("dw-btn").disabled = false;
+            showDwErr(d.error || "未知错误");
+          }
+        } catch {}
+      }
+
+      function showDwErr(msg) {
+        const el = document.getElementById("dw-error");
+        el.style.display = "";
+        el.textContent = "❌ " + msg;
+        toast("去水印失败", "err");
+      }
+
+      // ── Pipeline ──
+      let pipeTaskId = null,
+        pipePollTimer = null,
+        pipeSegments = null,   // null = 无文案模式；array = 切割模式
+        pipeCutMode  = false;
+
+      // 步骤定义
+      const PIPE_STEPS_NORMAL = [
+        { label: '下载' }, { label: '识别翻译' }, { label: '烧录字幕' }, { label: '完成' }
+      ];
+      const PIPE_STEPS_CUT = [
+        { label: '下载' }, { label: '切割' }, { label: '识别翻译' }, { label: '烧录字幕' }, { label: '完成' }
+      ];
+
+      function pipeStep(step, state) {
+        const dot = document.getElementById("pd-" + step);
+        if (!dot) return;
+        dot.className = "ps-dot " + state;
+        if (state === "done") {
+          const line = document.getElementById("pl-" + step);
+          if (line) line.classList.add("done");
+        }
+      }
+
+      function _buildStepIndicator(steps) {
+        const row = document.getElementById("pipe-steps-row");
+        row.innerHTML = "";
+        steps.forEach((s, i) => {
+          const n = i + 1;
+          const stepEl = document.createElement("div");
+          stepEl.className = "pipe-step";
+          stepEl.id = "ps-" + n;
+          stepEl.innerHTML = `<div class="ps-dot" id="pd-${n}">${n}</div><div class="ps-label">${s.label}</div>`;
+          row.appendChild(stepEl);
+          if (i < steps.length - 1) {
+            const line = document.createElement("div");
+            line.className = "ps-line";
+            line.id = "pl-" + n;
+            row.appendChild(line);
+          }
+        });
+      }
+
+      function pipeLog(msg) {
+        const log = document.getElementById("pipe-log");
+        log.textContent += msg + "\n";
+        log.scrollTop = log.scrollHeight;
+      }
+
+      // ── 文案解析 ─────────────────────────────────
+      function togglePipeScript() {
+        const body = document.getElementById("pipe-script-body");
+        const icon = document.getElementById("pipe-script-icon");
+        const open = body.style.display === "none";
+        body.style.display = open ? "" : "none";
+        icon.textContent = open ? "▲ 收起" : "▼ 展开";
+      }
+
+      function clearPipeScript() {
+        document.getElementById("pipe-script-input").value = "";
+        document.getElementById("pipe-script-msg").textContent = "";
+        pipeSegments = null;
+      }
+
+      function parsePipeScript() {
+        const text = document.getElementById("pipe-script-input").value;
+        const msgEl = document.getElementById("pipe-script-msg");
+        const timeRe = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+        const found = [];
+        let m;
+        while ((m = timeRe.exec(text)) !== null) found.push(m[1]);
+
+        if (found.length < 2) {
+          msgEl.style.color = "var(--red)";
+          msgEl.textContent = found.length === 0
+            ? "❌ 未找到时间码，格式应为 [MM:SS]"
+            : "❌ 至少需要 2 个时间码才能生成片段";
+          pipeSegments = null;
+          return;
+        }
+
+        function toSec(str) {
+          const p = str.split(":").map(Number);
+          return p.length === 3 ? p[0]*3600+p[1]*60+p[2] : p[0]*60+p[1];
+        }
+        const times = [...new Set(found.map(toSec))].sort((a, b) => a - b);
+        pipeSegments = [];
+        for (let i = 0; i < times.length - 1; i++) {
+          pipeSegments.push({ start: times[i], end: times[i + 1] });
+        }
+        msgEl.style.color = "var(--green)";
+        msgEl.textContent = `✓ 解析到 ${pipeSegments.length} 段，启动后将切割`;
+      }
+
+      // ── 启动流水线 ───────────────────────────────
+      async function startPipeline(force = false) {
+        const url = document.getElementById("pipe-url").value.trim();
+        if (!url) return toast("请输入链接", "err");
+
+        const btn = document.getElementById("pipe-btn");
+        btn.disabled = true;
+
+        // 如果文案框有内容但未解析，自动解析一次
+        const scriptText = document.getElementById("pipe-script-input").value.trim();
+        if (scriptText && !pipeSegments) parsePipeScript();
+
+        const payload = { url, force: false, segments: pipeSegments || null };
+
+        if (!force) {
+          try {
+            const chk = await api("POST", "/api/pipeline/start", payload);
+            if (chk.already_downloaded) {
+              btn.disabled = false;
+              const yes = confirm(
+                `⚠️ 该视频已于 ${chk.ts} 下载过\n\n` +
+                  `文件：${chk.title}\n\n` +
+                  `是否重新下载？`,
+              );
+              if (!yes) return;
+              return startPipeline(true);
+            }
+            if (chk.task_id) {
+              _launchPipeline(url, chk.task_id, btn, !!pipeSegments);
+              return;
+            }
+            if (chk.error) { showPipeErr(chk.error); btn.disabled = false; return; }
+          } catch (e) {
+            showPipeErr("启动失败: " + e.message);
+            btn.disabled = false;
+            return;
+          }
+        }
+
+        try {
+          const d = await api("POST", "/api/pipeline/start",
+            { url, force: true, segments: pipeSegments || null });
+          if (d.error) { showPipeErr(d.error); btn.disabled = false; return; }
+          if (d.task_id) _launchPipeline(url, d.task_id, btn, !!pipeSegments);
+        } catch (e) {
+          showPipeErr("启动失败: " + e.message);
+          btn.disabled = false;
+        }
+      }
+
+      function _launchPipeline(url, taskId, btn, cutMode) {
+        pipeCutMode = cutMode;
+        const steps = cutMode ? PIPE_STEPS_CUT : PIPE_STEPS_NORMAL;
+        const total  = steps.length;
+
+        // 重建步骤指示器
+        _buildStepIndicator(steps);
+
+        // reset UI
+        document.getElementById("pipe-log").textContent = "";
+        document.getElementById("pipe-result").style.display = "none";
+        document.getElementById("pipe-error").style.display = "none";
+        document.getElementById("pipe-progress-card").style.display = "";
+
+        pipeLog("🚀 启动流水线" + (cutMode ? "（切割模式，共 " + (pipeSegments||[]).length + " 段）" : "") + "...");
+        pipeLog("链接: " + url);
+        pipeTaskId = taskId;
+        pipePollTimer = setInterval(() => pollPipeline(taskId), 1000);
+      }
+
+      async function pollPipeline(id) {
+        try {
+          const d = await api("GET", "/api/pipeline/task/" + id);
+          const log = document.getElementById("pipe-log");
+
+          if (d.logs && d.logs.length) {
+            log.textContent = d.logs.join("\n");
+            log.scrollTop = log.scrollHeight;
+          }
+
+          // 更新步骤状态（兼容 4 步和 5 步）
+          const s = d.step || 0;
+          const total = d.cut_mode ? 5 : 4;
+          for (let i = 1; i <= total; i++) {
+            if (s >= i) pipeStep(i, s > i ? "done" : (i === total ? "done" : "active"));
+          }
+
+          if (d.status === "done") {
+            clearInterval(pipePollTimer);
+            document.getElementById("pipe-btn").disabled = false;
+            const res = document.getElementById("pipe-result");
+            res.style.display = "";
+            const files = d.output_files && d.output_files.length
+              ? d.output_files
+              : (d.output_file ? [d.output_file] : []);
+            const fileLines = files.map(f => `🎬 <code>${esc(f)}</code>`).join("<br>");
+            res.innerHTML = `✅ 全部完成！<br>📁 输出目录：<code>${esc(d.output_dir || "")}</code><br>${fileLines}`;
+            toast("✓ 流水线完成");
+          } else if (d.status === "error") {
+            clearInterval(pipePollTimer);
+            document.getElementById("pipe-btn").disabled = false;
+            showPipeErr(d.error || "未知错误");
+            if (d.step) pipeStep(d.step, "err");
+          }
+        } catch {}
+      }
+
+      function showPipeErr(msg) {
+        const el = document.getElementById("pipe-error");
+        el.style.display = "";
+        el.textContent = "❌ " + msg;
+        toast("流水线失败", "err");
+      }
+
+      // ═══════════════════════════════════════
+      // 视频切割模块
+      // ═══════════════════════════════════════
+      (function () {
+        const vid = () => document.getElementById("ct-video");
+        const wrap = () => document.getElementById("ct-progress-wrap");
+        const fill = () => document.getElementById("ct-progress-fill");
+        const thumb = () => document.getElementById("ct-progress-thumb");
+        const label = () => document.getElementById("ct-time-label");
+        const playBtn = () => document.getElementById("ct-play-btn");
+
+        let ctMarkers = [];
+        let ctFilePath = "";
+        let ctDragging = false;
+        let ctLogLines = 0;
+        let ctScriptOpen = false;
+
+        // ── 文案解析 ─────────────────────────────────
+        window.ctToggleScript = function () {
+          ctScriptOpen = !ctScriptOpen;
+          document.getElementById("ct-script-body").style.display = ctScriptOpen ? "flex" : "none";
+          document.getElementById("ct-script-icon").textContent = ctScriptOpen ? "▲" : "▼";
+        };
+
+        window.ctParseScript = function () {
+          const text = document.getElementById("ct-script-input").value;
+          const msgEl = document.getElementById("ct-script-msg");
+          const timeRe = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+          const found = [];
+          let m;
+          while ((m = timeRe.exec(text)) !== null) found.push(m[1]);
+
+          if (found.length < 2) {
+            msgEl.style.color = "var(--red)";
+            msgEl.textContent = found.length === 0
+              ? "❌ 未找到时间码，格式应为 [MM:SS]"
+              : "❌ 至少需要 2 个时间码";
+            return;
+          }
+
+          function toSec(str) {
+            const p = str.split(":").map(Number);
+            return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+          }
+          const times = [...new Set(found.map(toSec))].sort((a, b) => a - b);
+          ctMarkers = times.map((t) => ({ time: t }));
+          ctRenderMarkers();
+          ctRenderPins();
+          msgEl.style.color = "var(--green)";
+          msgEl.textContent = `✓ 解析到 ${times.length} 个时间点，生成 ${times.length - 1} 段`;
+        };
+
+        // 格式化时间
+        function ctFmt(s, d = 1) {
+          if ((!s && s !== 0) || isNaN(s)) return "--:--:--";
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          const sec = (s % 60).toFixed(d);
+          const ss = parseFloat(sec) < 10 ? "0" + sec : sec;
+          return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${ss}`;
+        }
+        function ctParseTime(str) {
+          str = str.trim();
+          if (/^\d+(\.\d+)?$/.test(str)) return parseFloat(str);
+          const p = str.split(":");
+          if (p.length === 3)
+            return (
+              parseFloat(p[0]) * 3600 + parseFloat(p[1]) * 60 + parseFloat(p[2])
+            );
+          return NaN;
+        }
+
+        // 加载文件
+        window.ctLoadFile = async function (input) {
+          const file = input.files[0];
+          if (!file) return;
+          await ctLoad(file);
+        };
+
+        async function ctLoad(file) {
+          // 上传到后端获取真实路径
+          const fd = new FormData();
+          fd.append("file", file);
+          try {
+            const res = await fetch("/api/cutter/open", {
+              method: "POST",
+              body: fd,
+            });
+            const data = await res.json();
+            if (data.path) ctFilePath = data.path;
+          } catch (e) {
+            console.warn(e);
+          }
+
+          const v = vid();
+          if (v._blobUrl) URL.revokeObjectURL(v._blobUrl);
+          v._blobUrl = URL.createObjectURL(file);
+          v.src = v._blobUrl;
+          v.load();
+          document.getElementById("ct-drop-hint").style.display = "none";
+          v.style.display = "block";
+          document.getElementById("ct-video-wrap").style.cursor = "default";
+          document.getElementById("ct-video-wrap").onclick = null;
+          ctMarkers = [];
+          ctRenderMarkers();
+          document.getElementById("ct-cut-btn").disabled = false;
+        }
+
+        // 拖拽
+        const vw = document.getElementById("ct-video-wrap");
+        if (vw) {
+          vw.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            vw.style.outline = "2px dashed var(--accent)";
+          });
+          vw.addEventListener("dragleave", () => {
+            vw.style.outline = "";
+          });
+          vw.addEventListener("drop", (e) => {
+            e.preventDefault();
+            vw.style.outline = "";
+            const f = e.dataTransfer.files[0];
+            if (f) ctLoad(f);
+          });
+        }
+
+        // 播放控制
+        window.ctTogglePlay = function () {
+          const v = vid();
+          if (!v.src) return;
+          if (v.paused) {
+            v.play();
+            playBtn().textContent = "⏸ 暂停";
+          } else {
+            v.pause();
+            playBtn().textContent = "▶ 播放";
+          }
+        };
+        window.ctSeek = function (delta) {
+          const v = vid();
+          if (!v.src) return;
+          v.currentTime = Math.max(
+            0,
+            Math.min(v.duration || 0, v.currentTime + delta),
+          );
+        };
+        window.ctSetSpeed = function (val) {
+          vid().playbackRate = parseFloat(val);
+        };
+
+        // 键盘（只在切割页激活时生效）
+        document.addEventListener("keydown", (e) => {
+          if (
+            !document.getElementById("page-cutter").classList.contains("active")
+          )
+            return;
+          if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName))
+            return;
+          if (e.key === " ") {
+            e.preventDefault();
+            ctTogglePlay();
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            ctSeek(e.shiftKey ? -1 : -0.1);
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            ctSeek(e.shiftKey ? 1 : 0.1);
+          } else if (e.key === "m" || e.key === "M") {
+            e.preventDefault();
+            ctAddMarker();
+          }
+        });
+
+        // 进度条更新
+        const v = document.getElementById("ct-video");
+        if (v) {
+          v.addEventListener("timeupdate", () => {
+            const pct = v.duration ? (v.currentTime / v.duration) * 100 : 0;
+            fill().style.width = pct + "%";
+            thumb().style.left = pct + "%";
+            label().textContent =
+              ctFmt(v.currentTime, 1) + " / " + ctFmt(v.duration, 1);
+          });
+          v.addEventListener("ended", () => {
+            playBtn().textContent = "▶ 播放";
+          });
+          v.addEventListener("loadedmetadata", ctRenderPins);
+        }
+
+        // 进度条拖拽
+        const pw = document.getElementById("ct-progress-wrap");
+        if (pw) {
+          function posToTime(e) {
+            const r = pw.getBoundingClientRect();
+            return (
+              (Math.max(0, Math.min(e.clientX - r.left, r.width)) / r.width) *
+              (vid().duration || 0)
+            );
+          }
+          pw.addEventListener("mousedown", (e) => {
+            ctDragging = true;
+            vid().currentTime = posToTime(e);
+          });
+          document.addEventListener("mousemove", (e) => {
+            if (ctDragging) vid().currentTime = posToTime(e);
+          });
+          document.addEventListener("mouseup", () => {
+            ctDragging = false;
+          });
+        }
+
+        // 标记
+        window.ctAddMarker = function () {
+          const v = vid();
+          if (!v.src) return;
+          ctMarkers.push({ time: v.currentTime });
+          ctMarkers.sort((a, b) => a.time - b.time);
+          ctRenderMarkers();
+          ctRenderPins();
+        };
+        window.ctClearMarkers = function () {
+          ctMarkers = [];
+          ctRenderMarkers();
+          ctRenderPins();
+        };
+        window.ctDeleteMarker = function (idx) {
+          ctMarkers.splice(idx, 1);
+          ctRenderMarkers();
+          ctRenderPins();
+        };
+        window.ctJumpMarker = function (idx) {
+          vid().currentTime = ctMarkers[idx].time;
+        };
+        window.ctUpdateMarkerTime = function (idx, val) {
+          const t = ctParseTime(val);
+          if (!isNaN(t)) {
+            ctMarkers[idx].time = Math.max(0, t);
+            ctMarkers.sort((a, b) => a.time - b.time);
+          }
+          ctRenderMarkers();
+          ctRenderPins();
+        };
+
+        function ctRenderMarkers() {
+          const list = document.getElementById("ct-marker-list");
+          const badge = document.getElementById("ct-badge");
+          badge.textContent = ctMarkers.length;
+          const hint = document.getElementById("ct-cut-hint");
+          if (ctMarkers.length >= 2) {
+            hint.textContent = `将切割成 ${ctMarkers.length - 1} 段`;
+            hint.style.color = "var(--green)";
+          } else {
+            hint.textContent = "至少打 2 个标记再切割";
+            hint.style.color = "var(--text2)";
+          }
+          if (!ctMarkers.length) {
+            list.innerHTML =
+              '<div style="text-align:center;color:var(--text2);font-size:13px;margin-top:40px">加载视频后按 M 打标记</div>';
+            return;
+          }
+          list.innerHTML = ctMarkers
+            .map(
+              (m, i) => `
+            <div style="display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;margin-bottom:4px;background:var(--s2);cursor:pointer" onclick="ctJumpMarker(${i})">
+              <div style="width:20px;height:20px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${i + 1}</div>
+              <input style="flex:1;background:transparent;border:none;color:var(--text);font-size:13px;font-variant-numeric:tabular-nums;outline:none;cursor:pointer"
+                value="${ctFmt(m.time, 3)}"
+                onclick="event.stopPropagation()"
+                onblur="ctUpdateMarkerTime(${i}, this.value)"
+                onkeydown="if(event.key==='Enter')this.blur()">
+              <button style="background:none;border:none;color:var(--text2);cursor:pointer;padding:2px 4px;border-radius:4px;font-size:13px" onclick="event.stopPropagation();ctDeleteMarker(${i})">✕</button>
+            </div>
+          `,
+            )
+            .join("");
+        }
+
+        function ctRenderPins() {
+          const pw = document.getElementById("ct-progress-wrap");
+          if (!pw) return;
+          pw.querySelectorAll(".ct-pin").forEach((p) => p.remove());
+          const dur = vid().duration;
+          if (!dur) return;
+          ctMarkers.forEach((m) => {
+            const pin = document.createElement("div");
+            pin.className = "ct-pin";
+            pin.style.cssText = `position:absolute;top:-4px;width:2px;height:14px;background:#f59e0b;border-radius:1px;transform:translateX(-50%);pointer-events:none;left:${(m.time / dur) * 100}%`;
+            pw.appendChild(pin);
+          });
+        }
+
+        // 切割
+        window.ctStartCut = async function () {
+          if (ctMarkers.length < 2) {
+            alert("至少需要 2 个标记");
+            return;
+          }
+          if (!ctFilePath) {
+            alert("无法获取文件路径，请重新加载视频");
+            return;
+          }
+          const segments = [];
+          for (let i = 0; i < ctMarkers.length - 1; i++) {
+            segments.push({
+              start: ctMarkers[i].time,
+              end: ctMarkers[i + 1].time,
+            });
+          }
+          const outputDir = document
+            .getElementById("ct-output-dir")
+            .value.trim();
+
+          // 显示弹窗
+          ctLogLines = 0;
+          document.getElementById("ct-modal-log").textContent = "";
+          document.getElementById("ct-overall-fill").style.width = "0%";
+          document.getElementById("ct-modal-title").textContent =
+            "⚙️ 切割进行中...";
+          document.getElementById("ct-overlay").style.display = "flex";
+
+          const res = await fetch("/api/cutter/cut", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              file: ctFilePath,
+              segments,
+              output_dir: outputDir,
+            }),
+          });
+          const data = await res.json();
+          if (!data.task_id) {
+            document.getElementById("ct-modal-log").textContent =
+              "❌ " + (data.error || "未知错误");
+            return;
+          }
+          // 轮询
+          const total = segments.length;
+          while (true) {
+            await new Promise((r) => setTimeout(r, 700));
+            const r2 = await fetch("/api/cutter/task/" + data.task_id);
+            const t = await r2.json();
+            const logEl = document.getElementById("ct-modal-log");
+            const lines = t.logs || [];
+            if (lines.length > ctLogLines) {
+              for (let i = ctLogLines; i < lines.length; i++)
+                logEl.textContent += lines[i] + "\n";
+              logEl.scrollTop = logEl.scrollHeight;
+              ctLogLines = lines.length;
+            }
+            document.getElementById("ct-overall-fill").style.width =
+              Math.round(((t.done_count || 0) / total) * 100) + "%";
+            if (t.status === "done" || t.status === "error") {
+              document.getElementById("ct-modal-title").textContent =
+                t.status === "done" ? "✅ 切割完成！" : "❌ 切割出错";
+              break;
+            }
+          }
+        };
+      })();
+    </script>
+  </body>
+</html>
