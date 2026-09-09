@@ -113,9 +113,9 @@ def step_subtitle(video_path):
 
     # 尝试用 deep-translator 翻译成中文
     try:
-        from deep_translator import GoogleTranslator
+        from deep_translator import MyMemoryTranslator
         print("  翻译成中文...")
-        translator = GoogleTranslator(source="en", target="zh-CN")
+        translator = MyMemoryTranslator(source="en-US", target="zh-CN")
         for seg in segments:
             try:
                 seg["text"] = translator.translate(seg["text"].strip())
