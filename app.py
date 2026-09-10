@@ -5,6 +5,7 @@ import threading
 import uuid
 import tempfile
 import shutil
+from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 
 app = Flask(__name__, static_folder='static')
@@ -1541,6 +1542,98 @@ def cutter_task_status(task_id):
     if not task:
         return jsonify({'error': '任务不存在'}), 404
     return jsonify(task)
+
+
+# ─────────────────────────────────────────────
+# 视频创作 API
+# ─────────────────────────────────────────────
+creator_tasks = {}
+CREATOR_UPLOAD_DIR = os.path.join(BASE_DIR, '_creator_uploads')
+os.makedirs(CREATOR_UPLOAD_DIR, exist_ok=True)
+
+
+@app.route('/api/creator/upload', methods=['POST'])
+def creator_upload():
+    """上传视频或 BGM 文件，返回服务器端路径"""
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'ok': False, 'msg': '未上传文件'}), 400
+    filename = f.filename.replace('\\', '_').replace('/', '_')
+    save_path = os.path.join(CREATOR_UPLOAD_DIR, filename)
+    f.save(save_path)
+    return jsonify({'ok': True, 'path': save_path, 'name': filename})
+
+
+@app.route('/api/creator/start', methods=['POST'])
+def creator_start():
+    """
+    启动创作流水线
+    body: {
+        video_path: str,
+        bgm_paths: [str, ...],
+        segments: [{"en": str, "zh": str}, ...],
+        voice_style: str   // energetic / calm / empathetic / motivational / serious
+    }
+    """
+    data = request.json or {}
+    video_path  = data.get('video_path', '').strip()
+    bgm_paths   = data.get('bgm_paths', [])
+    segments    = data.get('segments', [])
+    voice_style = data.get('voice_style', 'energetic')
+
+    if not video_path or not os.path.isfile(video_path):
+        return jsonify({'error': '请先上传背景视频'}), 400
+    if not bgm_paths:
+        return jsonify({'error': '请至少上传一首 BGM'}), 400
+    if not segments:
+        return jsonify({'error': '请输入文案'}), 400
+
+    # 验证 bgm 文件存在
+    for p in bgm_paths:
+        if not os.path.isfile(p):
+            return jsonify({'error': f'BGM 文件不存在: {os.path.basename(p)}'}), 400
+
+    task_id = str(uuid.uuid4())
+    today   = datetime.now().strftime('%Y-%m-%d')
+    out_dir = os.path.join(get_download_dir(), today)
+    os.makedirs(out_dir, exist_ok=True)
+
+    creator_tasks[task_id] = {
+        'status': 'running',
+        'step': 0,
+        'logs': [],
+        'output_file': '',
+        'error': '',
+    }
+
+    def run():
+        from tts_pipeline import run_creator_pipeline
+        run_creator_pipeline(
+            task       = creator_tasks[task_id],
+            video_path = video_path,
+            bgm_paths  = bgm_paths,
+            segments   = segments,
+            voice_style= voice_style,
+            out_dir    = out_dir,
+            log_fn     = lambda msg: creator_tasks[task_id]['logs'].append(msg),
+        )
+
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({'task_id': task_id})
+
+
+@app.route('/api/creator/task/<task_id>', methods=['GET'])
+def creator_task_status(task_id):
+    task = creator_tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '任务不存在'}), 404
+    return jsonify({
+        'status':      task['status'],
+        'step':        task['step'],
+        'logs':        task['logs'][-80:],
+        'output_file': task['output_file'],
+        'error':       task['error'],
+    })
 
 
 if __name__ == '__main__':

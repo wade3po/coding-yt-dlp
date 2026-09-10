@@ -96,23 +96,45 @@ if errorlevel 1 (
 echo  ✓ Node.js 安装完成
 
 :: ============================================================
-:: 步骤 3：安装 Flask
+:: 步骤 3：安装 Python 依赖
 :: ============================================================
 :install_flask
 echo.
-echo  [3/3] 安装 Flask...
+echo  [3/3] 安装 Python 依赖（Flask / edge-tts / openai-whisper / deep-translator）...
+
 python -c "import flask" >nul 2>&1
 if not errorlevel 1 (
-    echo  ✓ Flask 已安装，跳过
-    goto done
+    echo  ✓ Flask 已安装
+) else (
+    pip install flask
+    if errorlevel 1 ( echo  [错误] Flask 安装失败 & pause & exit /b 1 )
+    echo  ✓ Flask 安装完成
 )
 
-pip install flask
-if errorlevel 1 (
-    echo  [错误] Flask 安装失败，请检查网络后重试
-    pause & exit /b 1
+python -c "import edge_tts" >nul 2>&1
+if not errorlevel 1 (
+    echo  ✓ edge-tts 已安装
+) else (
+    pip install edge-tts
+    if errorlevel 1 ( echo  [错误] edge-tts 安装失败 & pause & exit /b 1 )
+    echo  ✓ edge-tts 安装完成
 )
-echo  ✓ Flask 安装完成
+
+python -c "import whisper" >nul 2>&1
+if not errorlevel 1 (
+    echo  ✓ openai-whisper 已安装
+) else (
+    pip install openai-whisper
+    echo  ✓ openai-whisper 安装完成
+)
+
+python -c "from deep_translator import GoogleTranslator" >nul 2>&1
+if not errorlevel 1 (
+    echo  ✓ deep-translator 已安装
+) else (
+    pip install deep-translator
+    echo  ✓ deep-translator 安装完成
+)
 
 :: ============================================================
 :: 完成

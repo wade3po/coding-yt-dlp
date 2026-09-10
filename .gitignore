@@ -29,3 +29,6 @@ desktop.ini
 # 历史记录（本地数据，不提交）
 pipeline_history.json
 crawled_history.json
+
+# 视频创作上传临时文件
+_creator_uploads/

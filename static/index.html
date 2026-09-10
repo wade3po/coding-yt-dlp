@@ -771,6 +771,9 @@
           <div class="nav-item" onclick="nav('cutter', this)">
             <span class="nav-icon">✂️</span> 视频切割
           </div>
+          <div class="nav-item" onclick="nav('creator', this)">
+            <span class="nav-icon">🎬</span> 视频创作
+          </div>
           <div class="nav-item" onclick="nav('settings', this)">
             <span class="nav-icon">⚙</span> 设置
           </div>
@@ -925,9 +928,9 @@
             <div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;background:var(--s2);border-radius:8px;border:1.5px solid var(--border);">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;font-weight:500;color:var(--text3);">
                 <input type="checkbox" id="include-audio" style="width:15px;height:15px;accent-color:var(--accent);" />
-                包含音轨
+                包含原声音频
               </label>
-              <span style="font-size:12px;color:var(--text2);">默认只下载视频画面，不含声音；勾选后合并音频</span>
+              <span style="font-size:12px;color:var(--text2);">🔇 默认静音（纯视频）；需要原声时勾选</span>
             </div>
             <div class="action-row">
               <button class="btn btn-outline btn-sm" onclick="previewCmd()">
@@ -1996,6 +1999,96 @@
             </dl>
           </div>
         </div>
+
+        <!-- ── Creator ── -->
+        <div class="page" id="page-creator">
+          <div class="page-title">🎬 视频创作</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">上传背景视频 + BGM + 中英文文案，自动生成配音、双语字幕并合成成品视频。</p>
+
+      <!-- 第一行：视频 + BGM -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+        <!-- 背景视频 -->
+        <div class="card" style="margin:0;">
+          <div class="card-title">背景视频</div>
+          <div id="cr-video-drop" onclick="document.getElementById('cr-video-input').click()"
+            style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:border-color .14s;"
+            onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:28px;margin-bottom:6px;">🎥</div>
+            <div style="font-size:13px;color:var(--text2);">点击上传视频文件</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px;">mp4 / mov / mkv / webm</div>
+          </div>
+          <input type="file" id="cr-video-input" accept="video/*" style="display:none" onchange="crUploadVideo(this)"/>
+          <div id="cr-video-status" style="margin-top:8px;font-size:12px;display:none;"></div>
+        </div>
+
+        <!-- BGM -->
+        <div class="card" style="margin:0;">
+          <div class="card-title">背景音乐（3-5 首，随机选用）</div>
+          <div id="cr-bgm-drop" onclick="document.getElementById('cr-bgm-input').click()"
+            style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:border-color .14s;"
+            onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:28px;margin-bottom:6px;">🎵</div>
+            <div style="font-size:13px;color:var(--text2);">点击上传音频文件（可多选）</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px;">mp3 / wav / m4a / aac</div>
+          </div>
+          <input type="file" id="cr-bgm-input" accept="audio/*" multiple style="display:none" onchange="crUploadBgm(this)"/>
+          <div id="cr-bgm-list" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <!-- 文案输入 -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">文案（每行一段）</div>
+          <button class="btn btn-outline btn-sm" onclick="crAddSegment()">＋ 添加段落</button>
+        </div>
+        <div id="cr-segments"></div>
+      </div>
+
+      <!-- 声音风格 -->
+      <div class="card">
+        <div class="card-title">配音风格</div>
+        <div class="chips" id="cr-voice-chips">
+          <div class="chip on" onclick="crPickVoice(this,'energetic')">⚡ 充满活力</div>
+          <div class="chip" onclick="crPickVoice(this,'motivational')">💪 励志激昂</div>
+          <div class="chip" onclick="crPickVoice(this,'empathetic')">🤝 共情温暖</div>
+          <div class="chip" onclick="crPickVoice(this,'calm')">🧘 沉稳平静</div>
+          <div class="chip" onclick="crPickVoice(this,'serious')">📰 严肃正式</div>
+        </div>
+      </div>
+
+      <!-- 开始按钮 -->
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+        <button class="btn btn-primary" id="cr-start-btn" onclick="crStart()" style="height:44px;padding:0 28px;font-size:14px;">
+          🚀 开始生成
+        </button>
+      </div>
+
+      <!-- 进度 -->
+      <div class="card" id="cr-progress-card" style="display:none;">
+        <div class="card-title">生成进度</div>
+        <!-- 步骤条 -->
+        <div style="display:flex;align-items:flex-end;margin-bottom:16px;" id="cr-steps">
+          <div class="pipe-step"><div class="ps-dot" id="cr-s1">1</div><div class="ps-label">TTS配音</div></div>
+          <div class="ps-line" id="cr-l1"></div>
+          <div class="pipe-step"><div class="ps-dot" id="cr-s2">2</div><div class="ps-label">生成字幕</div></div>
+          <div class="ps-line" id="cr-l2"></div>
+          <div class="pipe-step"><div class="ps-dot" id="cr-s3">3</div><div class="ps-label">拼接语音</div></div>
+          <div class="ps-line" id="cr-l3"></div>
+          <div class="pipe-step"><div class="ps-dot" id="cr-s4">4</div><div class="ps-label">截取BGM</div></div>
+          <div class="ps-line" id="cr-l4"></div>
+          <div class="pipe-step"><div class="ps-dot" id="cr-s5">5</div><div class="ps-label">合成视频</div></div>
+          <div class="ps-line" id="cr-l5"></div>
+          <div class="pipe-step"><div class="ps-dot" id="cr-s6">6</div><div class="ps-label">完成</div></div>
+        </div>
+        <div class="log" id="cr-log" style="height:220px;"></div>
+        <div id="cr-result" style="display:none;margin-top:12px;padding:12px 14px;background:var(--green-bg);border:1px solid #6ee7b7;border-radius:var(--r);">
+          <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:4px;">🎉 生成完成！</div>
+          <div style="font-size:12px;color:var(--text2);" id="cr-result-path"></div>
+        </div>
+      </div>
+        </div>
       </div>
     </div>
 
@@ -2217,19 +2310,15 @@
         if (sub) args.push(sub);
         const rate = document.getElementById("rate-limit").value.trim();
         if (rate) args.push("-r", rate);
+        // 没勾「包含原声音频」时，ffmpeg 后处理去掉音轨
+        const withAudio = document.getElementById("include-audio").checked;
+        if (!withAudio) args.push("--postprocessor-args", "ffmpeg:-an");
         return args;
       }
 
       function getEffectiveFmt() {
-        const withAudio = document.getElementById("include-audio").checked;
-        if (withAudio) return selFmt; // 用户选的画质，含音频
-        // 把 bestvideo+bestaudio/best 等含音频的 format 替换成纯视频
-        const f = selFmt;
-        if (f === "bestvideo+bestaudio/best") return "bestvideo/best";
-        if (f.includes("+bestaudio")) return f.replace(/\+bestaudio/g, "");
-        if (f === "bestaudio/best") return f; // 仅音频模式原样保留
-        // 自定义 format id 直接用，加 --no-audio 参数方式
-        return f;
+        // format 直接用用户选的，音频由 postprocessor 统一处理
+        return selFmt;
       }
 
       function previewCmd() {
@@ -3771,6 +3860,236 @@
           }
         };
       })();
+    </script>
+
+    <script>
+    // ── 视频创作 Creator ──────────────────────────────────────────────────────
+    let crVideoPath = '';
+    let crBgmPaths  = [];
+    let crVoiceStyle = 'energetic';
+    let crPollTimer  = null;
+
+    // 初始化两个默认段落
+    function crInit() {
+      if (document.getElementById('cr-segments').children.length === 0) {
+        crAddSegment();
+        crAddSegment();
+      }
+    }
+
+    function crAddSegment() {
+      const wrap = document.getElementById('cr-segments');
+      const idx  = wrap.children.length + 1;
+      const div  = document.createElement('div');
+      div.className = 'cr-seg';
+      div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:10px;align-items:start;';
+      div.innerHTML = `
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;">英文 #${idx}</div>
+          <textarea placeholder="English script..." rows="3"
+            style="width:100%;padding:8px 10px;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;
+                   font-size:13px;resize:vertical;outline:none;font-family:inherit;color:var(--text);line-height:1.5;"
+            onfocus="this.style.borderColor='var(--accent)';this.style.background='#fff'"
+            onblur="this.style.borderColor='var(--border)';this.style.background='var(--s2)'"
+            class="cr-en"></textarea>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;">中文 #${idx}</div>
+          <textarea placeholder="中文文案..." rows="3"
+            style="width:100%;padding:8px 10px;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;
+                   font-size:13px;resize:vertical;outline:none;font-family:inherit;color:var(--text);line-height:1.5;"
+            onfocus="this.style.borderColor='var(--accent)';this.style.background='#fff'"
+            onblur="this.style.borderColor='var(--border)';this.style.background='var(--s2)'"
+            class="cr-zh"></textarea>
+        </div>
+        <button onclick="this.parentElement.remove();crRenumberSegs()"
+          style="margin-top:22px;width:30px;height:30px;border:none;background:var(--red-bg);color:var(--red);
+                 border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">×</button>
+      `;
+      wrap.appendChild(div);
+    }
+
+    function crRenumberSegs() {
+      const segs = document.querySelectorAll('.cr-seg');
+      segs.forEach((seg, i) => {
+        const labels = seg.querySelectorAll('div > div');
+        if (labels[0]) labels[0].textContent = `英文 #${i+1}`;
+        if (labels[1]) labels[1].textContent = `中文 #${i+1}`;
+      });
+    }
+
+    function crPickVoice(el, style) {
+      document.querySelectorAll('#cr-voice-chips .chip').forEach(c => c.classList.remove('on'));
+      el.classList.add('on');
+      crVoiceStyle = style;
+    }
+
+    async function crUploadVideo(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById('cr-video-status');
+      const dropEl   = document.getElementById('cr-video-drop');
+      statusEl.style.display = 'block';
+      statusEl.style.color   = 'var(--text2)';
+      statusEl.textContent   = '⏳ 上传中…';
+
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const r = await fetch('/api/creator/upload', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (d.ok) {
+          crVideoPath = d.path;
+          dropEl.innerHTML = `<div style="font-size:20px;">✅</div><div style="font-size:13px;font-weight:600;color:var(--green);">${d.name}</div>`;
+          statusEl.style.display = 'none';
+        } else {
+          statusEl.style.color = 'var(--red)';
+          statusEl.textContent = '❌ ' + d.msg;
+        }
+      } catch(e) {
+        statusEl.style.color = 'var(--red)';
+        statusEl.textContent = '❌ 上传失败';
+      }
+    }
+
+    async function crUploadBgm(input) {
+      const files = Array.from(input.files);
+      if (!files.length) return;
+      const listEl = document.getElementById('cr-bgm-list');
+
+      for (const file of files) {
+        const rowId = 'bgm_' + Date.now() + Math.random().toString(36).slice(2);
+        const row = document.createElement('div');
+        row.id = rowId;
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--s2);border-radius:6px;margin-bottom:4px;font-size:12px;';
+        row.innerHTML = `<span style="color:var(--text2);">⏳</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${file.name}</span>`;
+        listEl.appendChild(row);
+
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+          const r = await fetch('/api/creator/upload', { method: 'POST', body: fd });
+          const d = await r.json();
+          if (d.ok) {
+            crBgmPaths.push(d.path);
+            row.innerHTML = `<span style="color:var(--green);">🎵</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
+              <span onclick="crRemoveBgm('${d.path}','${rowId}')" style="cursor:pointer;color:var(--red);padding:0 4px;">×</span>`;
+          } else {
+            row.innerHTML = `<span style="color:var(--red);">❌</span><span>${file.name} 上传失败</span>`;
+          }
+        } catch(e) {
+          row.innerHTML = `<span style="color:var(--red);">❌</span><span>${file.name} 上传失败</span>`;
+        }
+      }
+    }
+
+    function crRemoveBgm(path, rowId) {
+      crBgmPaths = crBgmPaths.filter(p => p !== path);
+      const row = document.getElementById(rowId);
+      if (row) row.remove();
+    }
+
+    async function crStart() {
+      if (!crVideoPath) return toast('请先上传背景视频', 'err');
+      if (!crBgmPaths.length) return toast('请至少上传一首 BGM', 'err');
+
+      // 收集文案
+      const segEls = document.querySelectorAll('.cr-seg');
+      const segments = [];
+      segEls.forEach(el => {
+        const en = el.querySelector('.cr-en').value.trim();
+        const zh = el.querySelector('.cr-zh').value.trim();
+        if (en) segments.push({ en, zh });
+      });
+      if (!segments.length) return toast('请输入至少一段英文文案', 'err');
+
+      // 重置进度UI
+      document.getElementById('cr-progress-card').style.display = 'block';
+      document.getElementById('cr-result').style.display = 'none';
+      document.getElementById('cr-log').textContent = '';
+      document.getElementById('cr-progress-card').scrollIntoView({ behavior: 'smooth' });
+      for (let i = 1; i <= 6; i++) {
+        const dot = document.getElementById('cr-s'+i);
+        dot.className = 'ps-dot';
+        dot.textContent = i;
+      }
+      for (let i = 1; i <= 5; i++) {
+        const line = document.getElementById('cr-l'+i);
+        if (line) line.className = 'ps-line';
+      }
+
+      document.getElementById('cr-start-btn').disabled = true;
+
+      try {
+        const r = await fetch('/api/creator/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_path:  crVideoPath,
+            bgm_paths:   crBgmPaths,
+            segments:    segments,
+            voice_style: crVoiceStyle,
+          })
+        });
+        const d = await r.json();
+        if (d.error) { toast(d.error, 'err'); document.getElementById('cr-start-btn').disabled = false; return; }
+        crPollTask(d.task_id);
+      } catch(e) {
+        toast('启动失败: ' + e.message, 'err');
+        document.getElementById('cr-start-btn').disabled = false;
+      }
+    }
+
+    function crPollTask(taskId) {
+      if (crPollTimer) clearInterval(crPollTimer);
+      crPollTimer = setInterval(async () => {
+        try {
+          const r = await fetch('/api/creator/task/' + taskId);
+          const d = await r.json();
+
+          // 更新步骤点
+          const step = d.step || 0;
+          for (let i = 1; i <= 6; i++) {
+            const dot  = document.getElementById('cr-s'+i);
+            const line = document.getElementById('cr-l'+(i));
+            if (d.status === 'error') {
+              if (i === step) { dot.className = 'ps-dot err'; dot.textContent = '✕'; }
+              else if (i < step) { dot.className = 'ps-dot done'; dot.textContent = '✓'; }
+              else { dot.className = 'ps-dot'; dot.textContent = i; }
+            } else {
+              if (i < step) { dot.className = 'ps-dot done'; dot.textContent = '✓'; if (line) line.className = 'ps-line done'; }
+              else if (i === step) { dot.className = 'ps-dot active'; dot.textContent = i; }
+              else { dot.className = 'ps-dot'; dot.textContent = i; }
+            }
+          }
+
+          // 更新日志
+          const logEl = document.getElementById('cr-log');
+          logEl.textContent = (d.logs || []).join('\n');
+          logEl.scrollTop = logEl.scrollHeight;
+
+          if (d.status === 'done') {
+            clearInterval(crPollTimer);
+            document.getElementById('cr-start-btn').disabled = false;
+            document.getElementById('cr-result').style.display = 'block';
+            document.getElementById('cr-result-path').textContent = '📁 ' + (d.output_file || '');
+            toast('🎉 视频生成完成！', 'ok');
+          } else if (d.status === 'error') {
+            clearInterval(crPollTimer);
+            document.getElementById('cr-start-btn').disabled = false;
+            toast('生成失败：' + d.error, 'err');
+          }
+        } catch(e) { /* ignore */ }
+      }, 1500);
+    }
+
+    // 切换到 creator 页面时初始化段落
+    const _origNav = typeof nav === 'function' ? nav : null;
+    document.querySelectorAll('.nav-item').forEach(item => {
+      if (item.textContent.includes('视频创作')) {
+        item.addEventListener('click', () => setTimeout(crInit, 0));
+      }
+    });
     </script>
   </body>
 </html>
