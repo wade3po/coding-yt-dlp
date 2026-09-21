@@ -774,6 +774,9 @@
           <div class="nav-item" onclick="nav('creator', this)">
             <span class="nav-icon">🎬</span> 视频创作
           </div>
+          <div class="nav-item" onclick="nav('composer', this)">
+            <span class="nav-icon">🎞</span> 视频合成
+          </div>
           <div class="nav-item" onclick="nav('settings', this)">
             <span class="nav-icon">⚙</span> 设置
           </div>
@@ -2089,6 +2092,72 @@
         </div>
       </div>
         </div>
+
+        <!-- ── Composer ── -->
+        <div class="page" id="page-composer">
+          <div class="page-title">🎞 视频合成</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">上传开头、结尾和多个主体视频，每个主体视频单独生成一个成品（开头 + 主体烧字幕 + 结尾）。</p>
+
+          <!-- 电影名 + start/end 状态 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+            <!-- 电影名 -->
+            <div class="card" style="margin:0;">
+              <div class="card-title">电影名（全局，烧入每个视频）</div>
+              <input type="text" id="cp-movie-name" placeholder="《当幸福来敲门》"
+                style="width:100%;height:42px;padding:0 14px;background:var(--s2);border:1.5px solid var(--border);
+                       border-radius:8px;font-size:14px;outline:none;color:var(--text);"
+                onfocus="this.style.borderColor='var(--accent)';this.style.background='#fff'"
+                onblur="this.style.borderColor='var(--border)';this.style.background='var(--s2)'"/>
+            </div>
+
+            <!-- start/end 状态 -->
+            <div class="card" style="margin:0;">
+              <div class="card-title">开头 / 结尾视频（自动读取）</div>
+              <div id="cp-se-status" style="font-size:13px;color:var(--text2);line-height:2;">
+                ⏳ 检测中…
+              </div>
+            </div>
+          </div>
+
+          <!-- 主体视频列表 -->
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div class="card-title" style="margin:0;">主体视频</div>
+              <label class="btn btn-outline btn-sm" style="cursor:pointer;">
+                ＋ 添加视频
+                <input type="file" accept="video/*" multiple style="display:none" onchange="cpAddClips(this)"/>
+              </label>
+            </div>
+            <div id="cp-clips-list">
+              <div class="empty" id="cp-clips-empty">还没有添加视频</div>
+            </div>
+          </div>
+
+          <!-- 开始按钮 -->
+          <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+            <button class="btn btn-primary" id="cp-start-btn" onclick="cpStart()" style="height:44px;padding:0 28px;font-size:14px;">
+              🚀 开始批量生成
+            </button>
+          </div>
+
+          <!-- 进度 -->
+          <div class="card" id="cp-progress-card" style="display:none;">
+            <div class="card-title">生成进度</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+              <div style="flex:1;background:var(--s2);border-radius:4px;height:8px;border:1px solid var(--border);overflow:hidden;">
+                <div id="cp-prog-fill" style="height:100%;background:linear-gradient(90deg,var(--accent),#818cf8);border-radius:4px;width:0%;transition:width .3s;"></div>
+              </div>
+              <div id="cp-prog-text" style="font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;">0 / 0</div>
+            </div>
+            <div class="log" id="cp-log" style="height:220px;"></div>
+            <div id="cp-result" style="display:none;margin-top:12px;padding:12px 14px;background:var(--green-bg);border:1px solid #6ee7b7;border-radius:var(--r);">
+              <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:6px;">🎉 全部完成！</div>
+              <div id="cp-result-files" style="font-size:12px;color:var(--text2);line-height:1.8;"></div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -4090,6 +4159,161 @@
         item.addEventListener('click', () => setTimeout(crInit, 0));
       }
     });
+    </script>
+
+    <script>
+    // ── 视频合成 Composer ─────────────────────────────────────────────────────
+    let cpClips     = [];   // [{file, path, rowId}]
+    let cpPollTimer = null;
+
+    // 页面切换到 composer 时检测 start/end
+    async function cpCheckFiles() {
+      const el = document.getElementById('cp-se-status');
+      try {
+        const r = await fetch('/api/composer/check');
+        const d = await r.json();
+        const startTxt = d.start ? '✅ start.mp4' : '❌ start.mp4 不存在';
+        const endTxt   = d.end   ? '✅ end.mp4'   : '❌ end.mp4 不存在';
+        el.innerHTML = `<span style="color:${d.start?'var(--green)':'var(--red)'}">${startTxt}</span><br>
+                        <span style="color:${d.end?'var(--green)':'var(--red)'}">${endTxt}</span>`;
+      } catch(e) {
+        el.textContent = '⚠️ 检测失败';
+      }
+    }
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      if (item.textContent.includes('视频合成')) {
+        item.addEventListener('click', () => setTimeout(cpCheckFiles, 0));
+      }
+    });
+
+    async function cpAddClips(input) {
+      const files = Array.from(input.files);
+      if (!files.length) return;
+      document.getElementById('cp-clips-empty').style.display = 'none';
+      const listEl = document.getElementById('cp-clips-list');
+
+      for (const file of files) {
+        const idx   = cpClips.length;
+        const rowId = 'cprow_' + idx + '_' + Date.now();
+        const row   = document.createElement('div');
+        row.id = rowId;
+        row.style.cssText = 'display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;background:var(--s2);border-radius:8px;margin-bottom:8px;border:1.5px solid var(--border);';
+        row.innerHTML = `
+          <span style="font-size:20px;">⏳</span>
+          <div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${file.name}</div>
+            <input type="text" placeholder="输入标题（烧入视频）" data-idx="${idx}"
+              style="width:100%;padding:6px 10px;background:white;border:1.5px solid var(--border);border-radius:6px;font-size:13px;outline:none;"
+              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+              class="cp-title-input"/>
+          </div>
+          <button onclick="cpRemoveClip(${idx},'${rowId}')"
+            style="width:28px;height:28px;border:none;background:var(--red-bg);color:var(--red);border-radius:6px;cursor:pointer;font-size:15px;">×</button>
+        `;
+        listEl.appendChild(row);
+
+        // 上传文件
+        const fd = new FormData();
+        fd.append('file', file);
+        const iconEl = row.querySelector('span');
+        try {
+          const r = await fetch('/api/composer/upload', { method: 'POST', body: fd });
+          const d = await r.json();
+          if (d.ok) {
+            cpClips.push({ path: d.path, rowId });
+            iconEl.textContent = '🎬';
+          } else {
+            iconEl.textContent = '❌';
+            cpClips.push({ path: '', rowId });
+          }
+        } catch(e) {
+          iconEl.textContent = '❌';
+          cpClips.push({ path: '', rowId });
+        }
+      }
+      input.value = '';
+    }
+
+    function cpRemoveClip(idx, rowId) {
+      cpClips = cpClips.filter(c => c.rowId !== rowId);
+      const row = document.getElementById(rowId);
+      if (row) row.remove();
+      if (!cpClips.length) document.getElementById('cp-clips-empty').style.display = '';
+    }
+
+    async function cpStart() {
+      if (!cpClips.length) return toast('请添加主体视频', 'err');
+
+      const movieName = document.getElementById('cp-movie-name').value.trim();
+
+      // 收集每个 clip 的标题
+      const clips = cpClips.map(c => {
+        const row   = document.getElementById(c.rowId);
+        const title = row ? row.querySelector('.cp-title-input').value.trim() : '';
+        return { path: c.path, title };
+      }).filter(c => c.path);
+
+      if (!clips.length) return toast('没有有效的视频文件', 'err');
+
+      // 重置 UI
+      document.getElementById('cp-progress-card').style.display = 'block';
+      document.getElementById('cp-result').style.display = 'none';
+      document.getElementById('cp-log').textContent = '';
+      document.getElementById('cp-prog-fill').style.width = '0%';
+      document.getElementById('cp-prog-text').textContent = `0 / ${clips.length}`;
+      document.getElementById('cp-start-btn').disabled = true;
+      document.getElementById('cp-progress-card').scrollIntoView({ behavior: 'smooth' });
+
+      try {
+        const r = await fetch('/api/composer/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ movie_name: movieName, clips })
+        });
+        const d = await r.json();
+        if (d.error) { toast(d.error, 'err'); document.getElementById('cp-start-btn').disabled = false; return; }
+        cpPollTask(d.task_id, clips.length);
+      } catch(e) {
+        toast('启动失败: ' + e.message, 'err');
+        document.getElementById('cp-start-btn').disabled = false;
+      }
+    }
+
+    function cpPollTask(taskId, total) {
+      if (cpPollTimer) clearInterval(cpPollTimer);
+      cpPollTimer = setInterval(async () => {
+        try {
+          const r = await fetch('/api/composer/task/' + taskId);
+          const d = await r.json();
+
+          // 进度条
+          const pct = total > 0 ? Math.round((d.done / total) * 100) : 0;
+          document.getElementById('cp-prog-fill').style.width = pct + '%';
+          document.getElementById('cp-prog-text').textContent = `${d.done} / ${total}`;
+
+          // 日志
+          const logEl = document.getElementById('cp-log');
+          logEl.textContent = (d.logs || []).join('\n');
+          logEl.scrollTop = logEl.scrollHeight;
+
+          if (d.status === 'done') {
+            clearInterval(cpPollTimer);
+            document.getElementById('cp-start-btn').disabled = false;
+            document.getElementById('cp-result').style.display = 'block';
+            const filesEl = document.getElementById('cp-result-files');
+            filesEl.innerHTML = (d.outputs || []).map(f =>
+              `📁 ${f.split(/[\\/]/).pop()}`
+            ).join('<br>');
+            toast(`🎉 完成！共 ${d.outputs.length} 个成品`, 'ok');
+          } else if (d.status === 'error') {
+            clearInterval(cpPollTimer);
+            document.getElementById('cp-start-btn').disabled = false;
+            toast('生成失败：' + d.error, 'err');
+          }
+        } catch(e) { /* ignore */ }
+      }, 1500);
+    }
     </script>
   </body>
 </html>

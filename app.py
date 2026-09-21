@@ -1549,7 +1549,6 @@ def cutter_task_status(task_id):
 # ─────────────────────────────────────────────
 creator_tasks = {}
 CREATOR_UPLOAD_DIR = os.path.join(BASE_DIR, '_creator_uploads')
-os.makedirs(CREATOR_UPLOAD_DIR, exist_ok=True)
 
 
 @app.route('/api/creator/upload', methods=['POST'])
@@ -1558,6 +1557,7 @@ def creator_upload():
     f = request.files.get('file')
     if not f:
         return jsonify({'ok': False, 'msg': '未上传文件'}), 400
+    os.makedirs(CREATOR_UPLOAD_DIR, exist_ok=True)
     filename = f.filename.replace('\\', '_').replace('/', '_')
     save_path = os.path.join(CREATOR_UPLOAD_DIR, filename)
     f.save(save_path)
@@ -1617,6 +1617,18 @@ def creator_start():
             out_dir    = out_dir,
             log_fn     = lambda msg: creator_tasks[task_id]['logs'].append(msg),
         )
+        # 清理上传的临时文件
+        for p in [video_path] + bgm_paths:
+            try:
+                if p and os.path.isfile(p):
+                    os.remove(p)
+            except Exception:
+                pass
+        try:
+            if os.path.isdir(CREATOR_UPLOAD_DIR) and not os.listdir(CREATOR_UPLOAD_DIR):
+                os.rmdir(CREATOR_UPLOAD_DIR)
+        except Exception:
+            pass
 
     threading.Thread(target=run, daemon=True).start()
     return jsonify({'task_id': task_id})
@@ -1633,6 +1645,231 @@ def creator_task_status(task_id):
         'logs':        task['logs'][-80:],
         'output_file': task['output_file'],
         'error':       task['error'],
+    })
+
+
+# ─────────────────────────────────────────────
+# 视频合成 API (Composer)
+# ─────────────────────────────────────────────
+composer_tasks = {}
+COMPOSER_UPLOAD_DIR = os.path.join(BASE_DIR, '_composer_uploads')
+
+FONT_PATH = r'C:/Windows/Fonts/msyh.ttc'
+
+
+@app.route('/api/composer/check', methods=['GET'])
+def composer_check():
+    start_ok = os.path.isfile(os.path.join(BASE_DIR, 'start.mp4'))
+    end_ok   = os.path.isfile(os.path.join(BASE_DIR, 'end.mp4'))
+    return jsonify({'start': start_ok, 'end': end_ok})
+
+
+@app.route('/api/composer/upload', methods=['POST'])
+def composer_upload():
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'ok': False, 'msg': '未上传文件'}), 400
+    os.makedirs(COMPOSER_UPLOAD_DIR, exist_ok=True)
+    filename = f.filename.replace('\\', '_').replace('/', '_')
+    save_path = os.path.join(COMPOSER_UPLOAD_DIR, filename)
+    f.save(save_path)
+    return jsonify({'ok': True, 'path': save_path, 'name': filename})
+
+
+@app.route('/api/composer/start', methods=['POST'])
+def composer_start():
+    """
+    body: {
+        movie_name: str,
+        clips: [{"path": str, "title": str}, ...]
+    }
+    start.mp4 和 end.mp4 固定用项目根目录的文件
+    """
+    data = request.json or {}
+    movie_name = data.get('movie_name', '').strip()
+    clips      = data.get('clips', [])
+
+    start_path = os.path.join(BASE_DIR, 'start.mp4')
+    end_path   = os.path.join(BASE_DIR, 'end.mp4')
+
+    if not os.path.isfile(start_path):
+        return jsonify({'error': f'找不到 start.mp4，请放到项目根目录：{BASE_DIR}'}), 400
+    if not os.path.isfile(end_path):
+        return jsonify({'error': f'找不到 end.mp4，请放到项目根目录：{BASE_DIR}'}), 400
+    if not clips:
+        return jsonify({'error': '请至少上传一个主体视频'}), 400
+
+    task_id = str(uuid.uuid4())
+    composer_tasks[task_id] = {
+        'status': 'running',
+        'total': len(clips),
+        'done': 0,
+        'logs': [],
+        'outputs': [],
+        'error': '',
+    }
+
+    def run():
+        task = composer_tasks[task_id]
+
+        def log(msg):
+            task['logs'].append(msg)
+
+        ffmpeg_bin = find_ffmpeg() or FFMPEG
+        today   = datetime.now().strftime('%Y-%m-%d')
+        out_dir = os.path.join(get_download_dir(), today, 'composer')
+        os.makedirs(out_dir, exist_ok=True)
+
+        # 获取 start 分辨率
+        import re
+        r = subprocess.run([ffmpeg_bin, '-i', start_path],
+                           capture_output=True, text=True, encoding='utf-8', errors='replace')
+        m = re.search(r'(\d{2,5})x(\d{2,5})', r.stderr)
+        w, h = (int(m.group(1)), int(m.group(2))) if m else (1920, 1080)
+
+        font_size = max(36, h // 18)
+        line_gap  = int(font_size * 1.4)
+        y1 = f"(h-{line_gap*2})/2"
+        y2 = f"(h-{line_gap*2})/2+{line_gap}"
+        font_esc = r"C\:/Windows/Fonts/msyh.ttc"
+
+        for i, clip in enumerate(clips):
+            clip_path = clip.get('path', '')
+            title     = clip.get('title', '').strip()
+            log(f'[{i+1}/{len(clips)}] 处理: {os.path.basename(clip_path)}')
+
+            if not os.path.isfile(clip_path):
+                log(f'  ❌ 文件不存在，跳过')
+                task['done'] += 1
+                continue
+
+            import tempfile, shutil as _shutil
+            tmp = tempfile.mkdtemp(prefix='composer_')
+
+            def has_audio(path):
+                """检测视频是否有音轨"""
+                r = subprocess.run(
+                    [ffmpeg_bin, '-i', path],
+                    capture_output=True, text=True, encoding='utf-8', errors='replace'
+                )
+                return 'Audio:' in r.stderr
+
+            def audio_filter(idx, path):
+                """返回该路的音频 filter 片段，无音轨则补静音"""
+                if has_audio(path):
+                    return f'[{idx}:a]aresample=44100[a{idx}]'
+                else:
+                    return f'aevalsrc=0:c=stereo:r=44100:d=999[a{idx}]'
+
+            try:
+                # Step 1: 烧字幕到 clip
+                line1 = movie_name.replace("'", "\\'").replace(':', '\\:')
+                line2 = title.replace("'", "\\'").replace(':', '\\:')
+
+                vf_parts = []
+                if line1:
+                    vf_parts.append(
+                        f"drawtext=fontfile='{font_esc}':text='{line1}'"
+                        f":fontsize={font_size}:fontcolor=white"
+                        f":borderw=3:bordercolor=black"
+                        f":x=(w-text_w)/2:y={y1}"
+                    )
+                if line2:
+                    vf_parts.append(
+                        f"drawtext=fontfile='{font_esc}':text='{line2}'"
+                        f":fontsize={font_size}:fontcolor=white"
+                        f":borderw=3:bordercolor=black"
+                        f":x=(w-text_w)/2:y={y2}"
+                    )
+                vf = ','.join(vf_parts) if vf_parts else 'null'
+
+                # 把字幕烧到 start.mp4，不是主体视频
+                start_titled = os.path.join(tmp, 'start_titled.mp4')
+                p = subprocess.run(
+                    [ffmpeg_bin, '-y', '-i', start_path,
+                     '-vf', vf,
+                     '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
+                     '-c:a', 'copy',
+                     start_titled],
+                    capture_output=True, text=True, encoding='utf-8', errors='replace'
+                )
+                if p.returncode != 0:
+                    log(f'  ❌ 字幕烧录失败: {p.stderr[-300:]}')
+                    task['done'] += 1
+                    continue
+
+                # Step 2: filter_complex 拼接 start_titled + clip + end
+                safe_title = re.sub(r'[\\/:*?"<>|]', '_', title or f'clip{i+1}')
+                out_name   = f'{i+1:02d}_{safe_title[:40]}.mp4'
+                out_file   = os.path.join(out_dir, out_name)
+
+                p2 = subprocess.run(
+                    [ffmpeg_bin, '-y',
+                     '-i', start_titled,
+                     '-i', clip_path,
+                     '-i', end_path,
+                     '-filter_complex',
+                     f'[0:v]scale={w}:{h},setsar=1,fps=30[v0];'
+                     f'[1:v]scale={w}:{h},setsar=1,fps=30[v1];'
+                     f'[2:v]scale={w}:{h},setsar=1,fps=30[v2];'
+                     + audio_filter(0, start_titled) + ';'
+                     + audio_filter(1, clip_path) + ';'
+                     + audio_filter(2, end_path) + ';'
+                     f'[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[vout][aout]',
+                     '-map', '[vout]', '-map', '[aout]',
+                     '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
+                     '-c:a', 'aac', '-b:a', '128k',
+                     out_file],
+                    capture_output=True, text=True, encoding='utf-8', errors='replace'
+                )
+                if p2.returncode != 0:
+                    log(f'  ❌ 拼接失败: {p2.stderr[-200:]}')
+                else:
+                    size_mb = os.path.getsize(out_file) / 1024 / 1024
+                    log(f'  ✅ {out_name} ({size_mb:.1f} MB)')
+                    task['outputs'].append(out_file)
+
+            except Exception as e:
+                log(f'  ❌ 异常: {e}')
+            finally:
+                _shutil.rmtree(tmp, ignore_errors=True)
+                task['done'] += 1
+
+        task['status'] = 'done'
+        log(f'🎉 全部完成！共 {len(task["outputs"])} 个成品')
+        log(f'📁 {out_dir}')
+
+        # 清理上传的临时文件
+        for clip in clips:
+            try:
+                p = clip.get('path', '')
+                if p and os.path.isfile(p):
+                    os.remove(p)
+            except Exception:
+                pass
+        # 如果上传目录空了也删掉
+        try:
+            if os.path.isdir(COMPOSER_UPLOAD_DIR) and not os.listdir(COMPOSER_UPLOAD_DIR):
+                os.rmdir(COMPOSER_UPLOAD_DIR)
+        except Exception:
+            pass
+
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({'task_id': task_id})
+
+
+@app.route('/api/composer/task/<task_id>', methods=['GET'])
+def composer_task_status(task_id):
+    task = composer_tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '任务不存在'}), 404
+    return jsonify({
+        'status':  task['status'],
+        'total':   task['total'],
+        'done':    task['done'],
+        'logs':    task['logs'][-100:],
+        'outputs': task['outputs'],
+        'error':   task['error'],
     })
 
 
