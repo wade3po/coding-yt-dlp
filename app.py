@@ -1873,6 +1873,454 @@ def composer_task_status(task_id):
     })
 
 
+
+# ════════════════════════════════════════════════════════════
+#  加水印模块
+# ════════════════════════════════════════════════════════════
+
+addwm_tasks = {}
+
+_COLOR_MAP = {
+    'white':  'white',
+    'yellow': '#f5c518',
+    'black':  'black',
+    'red':    'red',
+}
+
+_POS_MAP = {
+    'br':     'x=w-tw-20:y=h-th-20',
+    'bl':     'x=20:y=h-th-20',
+    'tr':     'x=w-tw-20:y=20',
+    'tl':     'x=20:y=20',
+    'center': 'x=(w-tw)/2:y=(h-th)/2',
+}
+
+def _run_addwatermark(task_id, file_items, text, fontsize, color, position):
+    task = addwm_tasks[task_id]
+    task['status'] = 'running'
+    logs = task['logs']
+    progresses = task['progresses']
+
+    def log(msg):
+        logs.append(msg)
+
+    font_path = _find_chinese_font()
+    font_opt  = f"fontfile='{font_path}':" if font_path else ""
+    color_val = _COLOR_MAP.get(color, 'white')
+    pos_expr  = _POS_MAP.get(position, _POS_MAP['br'])
+    safe_text = text.replace("'", "\\'").replace(":", "\\:").replace("\\", "\\\\")
+
+    vf = (
+        f"drawtext={font_opt}text='{safe_text}':"
+        f"fontsize={fontsize}:"
+        f"fontcolor={color_val}:"
+        f"borderw=2:bordercolor=black@0.6:"
+        f"{pos_expr}"
+    )
+
+    log(f'水印: {text}  字号: {fontsize}  颜色: {color}  位置: {position}')
+    log(f'共 {len(file_items)} 个视频\n')
+
+    for idx, fpath in enumerate(file_items):
+        prog = progresses[idx]
+        prog['status'] = 'running'
+        fname = os.path.basename(fpath)
+        log(f'[{idx+1}/{len(file_items)}] {fname}')
+
+        try:
+            # 输出到原文件所在目录
+            src_dir  = os.path.dirname(fpath)
+            base     = os.path.splitext(fname)[0]
+            out_path = os.path.join(src_dir, base + '_水印.mp4')
+
+            cmd = [
+                FFMPEG, '-i', fpath,
+                '-vf', vf,
+                '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
+                '-c:a', 'copy',
+                out_path, '-y'
+            ]
+            r = subprocess.run(cmd, capture_output=True)
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
+                size_mb = os.path.getsize(out_path) / 1024 / 1024
+                log(f'  ✅ → {out_path} ({size_mb:.1f}MB)')
+                prog['status'] = 'done'
+            else:
+                err = r.stderr.decode(errors='ignore')[-400:]
+                raise RuntimeError(err)
+        except Exception as e:
+            log(f'  ❌ 失败: {e}')
+            prog['status'] = 'error'
+
+    done  = sum(1 for p in progresses if p['status'] == 'done')
+    error = sum(1 for p in progresses if p['status'] == 'error')
+    log(f'\n完成：{done} 成功，{error} 失败')
+    task['status'] = 'done' if error == 0 else 'error'
+
+
+@app.route('/api/addwatermark/scan', methods=['POST'])
+def addwatermark_scan():
+    """扫描指定目录下的视频文件"""
+    data = request.get_json()
+    dir_path = data.get('dir', '').strip()
+    if not dir_path or not os.path.isdir(dir_path):
+        return jsonify({'error': f'目录不存在: {dir_path}'}), 400
+    exts = ('.mp4', '.mkv', '.mov', '.avi', '.webm', '.flv')
+    files = []
+    for fname in sorted(os.listdir(dir_path)):
+        if fname.lower().endswith(exts) and '_水印' not in fname:
+            fpath = os.path.join(dir_path, fname)
+            if os.path.isfile(fpath):
+                files.append({'path': fpath, 'name': fname})
+    return jsonify({'files': files})
+
+
+@app.route('/api/addwatermark/upload', methods=['POST'])
+def addwatermark_upload():
+    """加水印专用上传接口，保留所有已上传文件"""
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'error': '未收到文件'}), 400
+    tmp_dir = os.path.join(get_download_dir(), '_addwm_tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
+    filename = f.filename or 'video.mp4'
+    # 文件名加随机前缀避免覆盖
+    unique_name = str(uuid.uuid4())[:8] + '_' + filename
+    save_path = os.path.join(tmp_dir, unique_name)
+    f.save(save_path)
+    return jsonify({'path': save_path, 'filename': filename})
+
+
+@app.route('/api/addwatermark/start', methods=['POST'])
+def addwatermark_start():
+    data = request.get_json()
+    if not data or not data.get('files'):
+        return jsonify({'error': '缺少参数'}), 400
+
+    file_items = data['files']   # 路径字符串列表
+    text       = data.get('text', '').strip()
+    fontsize   = int(data.get('fontsize', 36))
+    color      = data.get('color', 'white')
+    position   = data.get('position', 'br')
+
+    if not text:
+        return jsonify({'error': '水印文字不能为空'}), 400
+
+    for fpath in file_items:
+        if not os.path.isfile(fpath):
+            return jsonify({'error': f'文件不存在: {fpath}'}), 400
+
+    task_id = str(uuid.uuid4())
+    addwm_tasks[task_id] = {
+        'status': 'pending',
+        'logs': [],
+        'progresses': [{'status': 'pending'} for _ in file_items]
+    }
+
+    t = threading.Thread(
+        target=_run_addwatermark,
+        args=(task_id, file_items, text, fontsize, color, position),
+        daemon=True
+    )
+    t.start()
+    return jsonify({'task_id': task_id})
+
+
+@app.route('/api/addwatermark/task/<task_id>', methods=['GET'])
+def addwatermark_task(task_id):
+    task = addwm_tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '任务不存在'}), 404
+    return jsonify(task)
+
+
+# ════════════════════════════════════════════════════════════
+#  视频合并模块
+# ════════════════════════════════════════════════════════════
+
+merger_tasks = {}   # task_id -> task dict
+
+@app.route('/merger')
+def merger_page():
+    return send_from_directory('static', 'merger.html')
+
+def _build_intro_filter(text, duration, style, width, height, font_path):
+    """生成 ffmpeg drawtext 滤镜，根据 style 返回不同风格的片头"""
+    # 转义文字中的特殊字符
+    safe_text = text.replace("'", "\\'").replace(":", "\\:").replace("\\", "\\\\")
+
+    font_opt = f"fontfile='{font_path}':" if font_path else ""
+
+    if style == 'gold':
+        drawtext = (
+            f"drawtext={font_opt}text='{safe_text}':"
+            f"fontsize=52:fontcolor=#f5c518:"
+            f"borderw=2:bordercolor=#7a6000:"
+            f"x=(w-tw)/2:y=(h-th)/2:"
+            f"fontstyle=italic"
+        )
+        bg = f"color=c=#0a0a0a:s={width}x{height}:d={duration}"
+    elif style == 'cinema':
+        drawtext = (
+            f"drawtext={font_opt}text='{safe_text}':"
+            f"fontsize=44:fontcolor=white@0.9:"
+            f"borderw=1:bordercolor=black@0.4:"
+            f"x=(w-tw)/2:y=(h-th)/2:"
+            f"expansion=none"
+        )
+        # 上下加黑边 (电影信箱效果)
+        bar_h = int(height * 0.12)
+        bg = f"color=c=#1a0a00:s={width}x{height}:d={duration}"
+        drawtext = (
+            f"drawtext={font_opt}text='{safe_text}':"
+            f"fontsize=42:fontcolor=white@0.92:"
+            f"borderw=1:bordercolor=black@0.5:"
+            f"x=(w-tw)/2:y=(h-th)/2,"
+            f"drawbox=x=0:y=0:w={width}:h={bar_h}:color=black@1:t=fill,"
+            f"drawbox=x=0:y={height-bar_h}:w={width}:h={bar_h}:color=black@1:t=fill"
+        )
+        bg = f"color=c=#1a0a00:s={width}x{height}:d={duration}"
+    elif style == 'minimal':
+        drawtext = (
+            f"drawtext={font_opt}text='{safe_text}':"
+            f"fontsize=46:fontcolor=#111111:"
+            f"x=(w-tw)/2:y=(h-th)/2"
+        )
+        bg = f"color=c=#f0f0f0:s={width}x{height}:d={duration}"
+    else:  # white (default)
+        drawtext = (
+            f"drawtext={font_opt}text='{safe_text}':"
+            f"fontsize=52:fontcolor=white:"
+            f"borderw=2:bordercolor=black@0.6:"
+            f"x=(w-tw)/2:y=(h-th)/2"
+        )
+        bg = f"color=c=#111111:s={width}x{height}:d={duration}"
+
+    return bg, drawtext
+
+
+def _get_video_size(video_path):
+    """用 ffmpeg 获取视频宽高和帧率"""
+    import re
+    cmd = [FFMPEG, '-i', video_path]
+    result = subprocess.run(cmd, capture_output=True, errors='ignore')
+    output = result.stderr
+    m = re.search(r'(\d{2,5})x(\d{2,5})', output)
+    w, h = (1920, 1080)
+    if m:
+        w, h = int(m.group(1)), int(m.group(2))
+    fps_m = re.search(r'(\d+(?:\.\d+)?) fps', output)
+    fps = float(fps_m.group(1)) if fps_m else 25.0
+    return w, h, fps
+
+
+def _find_chinese_font():
+    """找一个可用的中文字体"""
+    candidates = [
+        r'C:\Windows\Fonts\simhei.ttf',
+        r'C:\Windows\Fonts\msyh.ttc',
+        r'C:\Windows\Fonts\simsun.ttc',
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            # ffmpeg drawtext fontfile 格式：正斜杠 + 冒号前加双反斜杠
+            return p.replace('\\', '/').replace(':', '\\\\:')
+    return None
+
+
+def _run_merger(task_id, videos, outro_path, style, intro_duration, output_dir):
+    task = merger_tasks[task_id]
+    task['status'] = 'running'
+    logs = task['logs']
+    progresses = task['progresses']
+
+    font_path = _find_chinese_font()
+
+    def log(msg):
+        logs.append(msg)
+
+    total = len(videos)
+    log(f'共 {total} 个视频，开始处理...')
+
+    for idx, item in enumerate(videos):
+        video_path = item['path']
+        title_text = item.get('title', '').strip()
+        prog = progresses[idx]
+        prog['status'] = 'running'
+
+        try:
+            log(f'\n[{idx+1}/{total}] {os.path.basename(video_path)}')
+
+            # 确定输出路径
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+                base_name = os.path.splitext(os.path.basename(video_path))[0]
+                out_path = os.path.join(output_dir, f"{base_name}_merged.mp4")
+            else:
+                base = os.path.splitext(video_path)[0]
+                out_path = base + '_merged.mp4'
+
+            # 获取视频尺寸
+            w, h, fps = _get_video_size(video_path)
+            log(f'  分辨率: {w}x{h}, fps: {fps}')
+            prog['pct'] = 10
+
+            # 决定要拼接的片段列表
+            parts = []   # 临时文件路径列表
+            tmp_files = []
+
+            # 1. 生成片头
+            if title_text:
+                log(f'  生成片头: "{title_text}"')
+                tmp_intro = os.path.join(tempfile.gettempdir(), f'intro_{task_id}_{idx}.mp4')
+                tmp_files.append(tmp_intro)
+
+                bg, drawtext = _build_intro_filter(title_text, intro_duration, style, w, h, font_path)
+
+                intro_cmd = [
+                    FFMPEG,
+                    '-f', 'lavfi', '-i', bg,
+                    '-f', 'lavfi', '-i', f'anullsrc=r=44100:cl=stereo:d={intro_duration}',
+                    '-vf', drawtext,
+                    '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
+                    '-c:a', 'aac', '-shortest',
+                    '-t', str(intro_duration),
+                    tmp_intro, '-y'
+                ]
+                r = subprocess.run(intro_cmd, capture_output=True)
+                if not os.path.exists(tmp_intro) or os.path.getsize(tmp_intro) < 1000:
+                    raise RuntimeError(f'片头生成失败: {r.stderr.decode(errors="ignore")[-300:]}')
+                parts.append(tmp_intro)
+                log('  ✅ 片头生成完毕')
+                prog['pct'] = 35
+            else:
+                prog['pct'] = 20
+
+            # 2. 主视频（重新编码统一格式，保证拼接兼容）
+            log('  处理主视频...')
+            tmp_main = os.path.join(tempfile.gettempdir(), f'main_{task_id}_{idx}.mp4')
+            tmp_files.append(tmp_main)
+
+            main_cmd = [
+                FFMPEG, '-i', video_path,
+                '-vf', f'scale={w}:{h}',
+                '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
+                '-c:a', 'aac', '-ar', '44100', '-ac', '2',
+                tmp_main, '-y'
+            ]
+            r = subprocess.run(main_cmd, capture_output=True)
+            if not os.path.exists(tmp_main) or os.path.getsize(tmp_main) < 1000:
+                raise RuntimeError(f'主视频处理失败: {r.stderr.decode(errors="ignore")[-300:]}')
+            parts.append(tmp_main)
+            prog['pct'] = 65
+
+            # 3. 结尾视频
+            if outro_path and os.path.exists(outro_path):
+                log('  处理结尾视频...')
+                tmp_outro = os.path.join(tempfile.gettempdir(), f'outro_{task_id}_{idx}.mp4')
+                tmp_files.append(tmp_outro)
+
+                outro_cmd = [
+                    FFMPEG, '-i', outro_path,
+                    '-vf', f'scale={w}:{h}',
+                    '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
+                    '-c:a', 'aac', '-ar', '44100', '-ac', '2',
+                    tmp_outro, '-y'
+                ]
+                r = subprocess.run(outro_cmd, capture_output=True)
+                if not os.path.exists(tmp_outro) or os.path.getsize(tmp_outro) < 1000:
+                    log('  ⚠️ 结尾视频处理失败，跳过')
+                else:
+                    parts.append(tmp_outro)
+            prog['pct'] = 80
+
+            # 4. 拼接所有片段
+            log(f'  拼接 {len(parts)} 个片段...')
+            concat_list = os.path.join(tempfile.gettempdir(), f'concat_{task_id}_{idx}.txt')
+            tmp_files.append(concat_list)
+
+            with open(concat_list, 'w', encoding='utf-8') as f:
+                for p in parts:
+                    escaped = p.replace("'", "'\\''")
+                    f.write(f"file '{escaped}'\n")
+
+            concat_cmd = [
+                FFMPEG,
+                '-f', 'concat', '-safe', '0',
+                '-i', concat_list,
+                '-c', 'copy',
+                out_path, '-y'
+            ]
+            r = subprocess.run(concat_cmd, capture_output=True)
+            if not os.path.exists(out_path) or os.path.getsize(out_path) < 1000:
+                raise RuntimeError(f'拼接失败: {r.stderr.decode(errors="ignore")[-300:]}')
+
+            size_mb = os.path.getsize(out_path) / 1024 / 1024
+            log(f'  ✅ 完成 → {out_path} ({size_mb:.1f}MB)')
+            prog['pct'] = 100
+            prog['status'] = 'done'
+
+        except Exception as e:
+            log(f'  ❌ 失败: {e}')
+            prog['status'] = 'error'
+
+        finally:
+            # 清理临时文件
+            for f in tmp_files:
+                try:
+                    if os.path.exists(f):
+                        os.remove(f)
+                except Exception:
+                    pass
+
+    done_count = sum(1 for p in progresses if p['status'] == 'done')
+    error_count = sum(1 for p in progresses if p['status'] == 'error')
+    log(f'\n全部处理完毕：{done_count} 成功，{error_count} 失败')
+    task['status'] = 'done' if error_count == 0 else 'error'
+
+
+@app.route('/api/merger/start', methods=['POST'])
+def merger_start():
+    data = request.get_json()
+    if not data or not data.get('videos'):
+        return jsonify({'error': '缺少参数'}), 400
+
+    videos     = data['videos']          # [{path, title}, ...]
+    outro_path = data.get('outro_path', '')
+    style      = data.get('style', 'white')
+    intro_dur  = float(data.get('intro_duration', 2))
+    output_dir = data.get('output_dir', '')
+
+    # 校验路径
+    for v in videos:
+        if not os.path.isfile(v.get('path', '')):
+            return jsonify({'error': f'文件不存在: {v.get("path", "")}'}), 400
+
+    task_id = str(uuid.uuid4())
+    merger_tasks[task_id] = {
+        'status': 'pending',
+        'logs': [],
+        'progresses': [{'pct': 0, 'status': 'pending'} for _ in videos]
+    }
+
+    t = threading.Thread(
+        target=_run_merger,
+        args=(task_id, videos, outro_path, style, intro_dur, output_dir),
+        daemon=True
+    )
+    t.start()
+
+    return jsonify({'task_id': task_id})
+
+
+@app.route('/api/merger/task/<task_id>', methods=['GET'])
+def merger_task(task_id):
+    task = merger_tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '任务不存在'}), 404
+    return jsonify(task)
+
+
 if __name__ == '__main__':
     print(f"yt-dlp 路径: {YT_DLP}")
     print(f"下载目录: {get_download_dir()}")

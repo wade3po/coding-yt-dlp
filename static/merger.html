@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>视频合并工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117;
+      --panel: #1a1d27;
+      --panel2: #12151f;
+      --border: #2d3148;
+      --accent: #4f46e5;
+      --accent2: #6366f1;
+      --green: #10b981;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #e5e7eb;
+      --text2: #9ca3af;
+      --text3: #6b7280;
+      --r: 8px;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── 顶栏 ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar h1 { font-size: 15px; font-weight: 600; }
+    .topbar .sep { flex: 1; }
+    .nav-links { display: flex; gap: 8px; }
+    .btn {
+      padding: 6px 14px;
+      border-radius: var(--r);
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: opacity .15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn:hover { opacity: .82; }
+    .btn:disabled { opacity: .38; cursor: default; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-green   { background: var(--green);  color: #fff; }
+    .btn-red     { background: var(--red);    color: #fff; }
+    .btn-ghost   { background: #2d3148; color: var(--text); }
+
+    /* ── 主体布局 ── */
+    .main {
+      flex: 1;
+      display: flex;
+      gap: 0;
+      overflow: hidden;
+      height: calc(100vh - 49px);
+    }
+
+    /* ── 左侧主区 ── */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .content::-webkit-scrollbar { width: 5px; }
+    .content::-webkit-scrollbar-thumb { background: #2d3148; border-radius: 3px; }
+
+    /* ── 区块卡片 ── */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .card-head .badge {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .card-head .sep { flex: 1; }
+    .card-body { padding: 14px 16px; }
+
+    /* ── 拖拽上传区 ── */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--r);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      color: var(--text2);
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent2);
+      background: rgba(99,102,241,.06);
+      color: var(--text);
+    }
+    .dropzone svg { opacity: .5; margin-bottom: 8px; }
+    .dropzone p { font-size: 13px; margin-bottom: 4px; }
+    .dropzone small { font-size: 11px; color: var(--text3); }
+
+    /* ── 视频列表 ── */
+    .video-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+
+    .video-item {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      transition: border-color .15s;
+    }
+    .video-item:hover { border-color: #3d4264; }
+
+    .video-item-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .video-idx {
+      width: 24px;
+      height: 24px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .video-name {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .video-size { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+    .video-del {
+      background: none;
+      border: none;
+      color: var(--text3);
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 15px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .video-del:hover { color: var(--red); background: rgba(239,68,68,.12); }
+
+    /* 片头文字输入 */
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title-label {
+      font-size: 11px;
+      color: var(--text2);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .title-input {
+      flex: 1;
+      background: #1e2235;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .title-input:focus { border-color: var(--accent2); }
+    .title-input::placeholder { color: var(--text3); }
+
+    /* 排序按钮 */
+    .sort-btns {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .sort-btn {
+      background: #2d3148;
+      border: none;
+      color: var(--text2);
+      border-radius: 4px;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .sort-btn:hover { background: var(--accent); color: #fff; }
+    .sort-btn:disabled { opacity: .3; cursor: default; }
+
+    /* 片头样式选择 */
+    .style-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .style-opt {
+      flex: 1;
+      min-width: 100px;
+      border: 2px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color .15s, background .15s;
+      font-size: 12px;
+    }
+    .style-opt:hover { border-color: var(--accent2); background: rgba(99,102,241,.06); }
+    .style-opt.selected { border-color: var(--accent2); background: rgba(99,102,241,.12); }
+    .style-opt .preview {
+      height: 48px;
+      border-radius: 5px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .5px;
+    }
+    .style-opt .name { color: var(--text2); font-size: 11px; }
+
+    /* 结尾视频区 */
+    .outro-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--r);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .outro-zone:hover {
+      border-color: var(--accent2);
+      background: rgba(99,102,241,.06);
+    }
+    .outro-zone.has-file { border-style: solid; border-color: var(--green); }
+    .outro-icon { font-size: 24px; flex-shrink: 0; }
+    .outro-info { flex: 1; }
+    .outro-info .outro-name { font-size: 13px; font-weight: 500; }
+    .outro-info .outro-hint { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .outro-clear {
+      background: none;
+      border: none;
+      color: var(--text3);
+      cursor: pointer;
+      padding: 4px 7px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .outro-clear:hover { color: var(--red); background: rgba(239,68,68,.12); }
+
+    /* 时长设置 */
+    .duration-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .duration-row label { font-size: 12px; color: var(--text2); }
+    .duration-input {
+      width: 70px;
+      background: #1e2235;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 13px;
+      outline: none;
+      text-align: center;
+    }
+    .duration-input:focus { border-color: var(--accent2); }
+    .duration-row span { font-size: 12px; color: var(--text3); }
+
+    /* ── 右侧面板 ── */
+    .sidebar {
+      width: 260px;
+      border-left: 1px solid var(--border);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .sidebar-section {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+    .sidebar-section h3 { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 10px; letter-spacing: .5px; text-transform: uppercase; }
+
+    /* 流程预览 */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--r);
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .flow-step .icon { font-size: 16px; flex-shrink: 0; }
+    .flow-step .label { flex: 1; color: var(--text2); }
+    .flow-step .label strong { color: var(--text); display: block; font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .flow-arrow { text-align: center; color: var(--text3); font-size: 11px; }
+
+    /* 输出设置 */
+    .out-input {
+      width: 100%;
+      background: #1e2235;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 12px;
+      outline: none;
+      margin-top: 6px;
+    }
+    .out-input:focus { border-color: var(--accent2); }
+
+    .sidebar-foot {
+      padding: 14px 16px;
+      margin-top: auto;
+    }
+    .merge-btn {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: var(--r);
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .merge-btn:hover { opacity: .85; }
+    .merge-btn:disabled { opacity: .38; cursor: default; }
+    .merge-hint { font-size: 11px; color: var(--text3); text-align: center; margin-top: 8px; }
+
+    /* ── 进度弹窗 ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .overlay.hidden { display: none; }
+    .modal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      width: 460px;
+      max-height: 82vh;
+      overflow-y: auto;
+    }
+    .modal h3 { font-size: 15px; margin-bottom: 14px; }
+    .modal-progress-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    .progress-item { }
+    .progress-item .pi-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
+    .progress-item .pi-label strong { color: var(--text); }
+    .pi-bar {
+      height: 4px;
+      background: #2d3148;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .pi-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 2px;
+      transition: width .4s;
+    }
+    .pi-fill.error { background: var(--red); }
+    .modal-log {
+      background: #0a0c14;
+      border-radius: var(--r);
+      padding: 10px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #a3e635;
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .modal-footer { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* 空状态 */
+    .empty-hint {
+      text-align: center;
+      color: var(--text3);
+      font-size: 12px;
+      padding: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 顶栏 -->
+<div class="topbar">
+  <h1>🎬 视频合并</h1>
+  <span class="sep"></span>
+  <div class="nav-links">
+    <a href="/cutter" class="btn btn-ghost">✂️ 切割</a>
+    <a href="/" class="btn btn-ghost">← 下载器</a>
+  </div>
+</div>
+
+<div class="main">
+  <!-- 左侧主区 -->
+  <div class="content">
+
+    <!-- 主视频区 -->
+    <div class="card">
+      <div class="card-head">
+        <span>📹 主视频</span>
+        <span class="badge" id="videoBadge">0</span>
+        <span class="sep"></span>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="document.getElementById('videoInput').click()">+ 添加视频</button>
+        <input type="file" id="videoInput" accept="video/*" multiple style="display:none" onchange="addVideos(this)">
+      </div>
+      <div class="card-body">
+        <!-- 拖拽区 -->
+        <div class="dropzone" id="dropzone"
+          onclick="document.getElementById('videoInput').click()"
+          ondragover="onDragOver(event)"
+          ondragleave="onDragLeave(event)"
+          ondrop="onDrop(event)">
+          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 8px">
+            <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+          </svg>
+          <p>拖拽视频文件到此处，或点击选择</p>
+          <small>支持多选 · mp4 / mkv / mov / webm</small>
+        </div>
+
+        <!-- 视频列表 -->
+        <div class="video-list" id="videoList"></div>
+      </div>
+    </div>
+
+    <!-- 片头设置 -->
+    <div class="card">
+      <div class="card-head">
+        <span>🎞️ 片头设置</span>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+        <div class="duration-row">
+          <label>片头时长</label>
+          <input type="number" class="duration-input" id="introDuration" value="2" min="1" max="10" step="0.5">
+          <span>秒</span>
+        </div>
+
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">文字样式</div>
+          <div class="style-row" id="styleRow">
+            <div class="style-opt selected" data-style="white" onclick="selectStyle(this)">
+              <div class="preview" style="background:#111;color:#fff">示例文字</div>
+              <div class="name">白字黑底</div>
+            </div>
+            <div class="style-opt" data-style="gold" onclick="selectStyle(this)">
+              <div class="preview" style="background:#0a0a0a;color:#f5c518;font-style:italic">示例文字</div>
+              <div class="name">金字黑底</div>
+            </div>
+            <div class="style-opt" data-style="cinema" onclick="selectStyle(this)">
+              <div class="preview" style="background:#1a0a00;color:#fff;letter-spacing:2px;font-size:11px">示例文字</div>
+              <div class="name">电影感</div>
+            </div>
+            <div class="style-opt" data-style="minimal" onclick="selectStyle(this)">
+              <div class="preview" style="background:#f0f0f0;color:#111;font-size:11px;letter-spacing:1px">示例文字</div>
+              <div class="name">极简白</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 结尾视频 -->
+    <div class="card">
+      <div class="card-head">
+        <span>🏁 结尾视频</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:4px">（可选）</span>
+      </div>
+      <div class="card-body">
+        <div class="outro-zone" id="outroZone" onclick="document.getElementById('outroInput').click()">
+          <div class="outro-icon" id="outroIcon">📂</div>
+          <div class="outro-info">
+            <div class="outro-name" id="outroName">点击选择结尾视频</div>
+            <div class="outro-hint" id="outroHint">所有合并视频共用同一个结尾</div>
+          </div>
+          <button class="outro-clear" id="outroClear" style="display:none" onclick="clearOutro(event)">✕</button>
+        </div>
+        <input type="file" id="outroInput" accept="video/*" style="display:none" onchange="setOutro(this)">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 右侧面板 -->
+  <div class="sidebar">
+
+    <!-- 流程预览 -->
+    <div class="sidebar-section">
+      <h3>合并流程预览</h3>
+      <div class="flow" id="flowPreview">
+        <div class="empty-hint">添加视频后显示预览</div>
+      </div>
+    </div>
+
+    <!-- 输出目录 -->
+    <div class="sidebar-section">
+      <h3>输出目录</h3>
+      <div style="font-size:11px;color:var(--text3)">留空则保存到第一个视频的同目录</div>
+      <input type="text" class="out-input" id="outputDir" placeholder="自动">
+    </div>
+
+    <!-- 合并按钮 -->
+    <div class="sidebar-foot">
+      <button class="merge-btn" id="mergeBtn" onclick="startMerge()" disabled>
+        🎬 开始合并
+      </button>
+      <div class="merge-hint" id="mergeHint">请先添加主视频</div>
+    </div>
+  </div>
+</div>
+
+<!-- 进度弹窗 -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal">
+    <h3 id="modalTitle">⚙️ 合并进行中...</h3>
+    <div class="modal-progress-list" id="progressList"></div>
+    <div class="modal-log" id="modalLog"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 状态 ──────────────────────────────
+let videos = [];       // [{file, name, size, path, title}]
+let outroFile = null;  // {file, name, path}
+let selectedStyle = 'white';
+
+// ── 工具函数 ──────────────────────────
+function fmtSize(bytes) {
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+// ── 样式选择 ──────────────────────────
+function selectStyle(el) {
+  document.querySelectorAll('.style-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedStyle = el.dataset.style;
+}
+
+// ── 添加主视频 ────────────────────────
+async function addVideos(input) {
+  for (const file of input.files) {
+    await addVideoFile(file);
+  }
+  input.value = '';
+  renderVideoList();
+  updateUI();
+}
+
+async function addVideoFile(file) {
+  // 上传路径到后端
+  const fd = new FormData();
+  fd.append('file', file);
+  let serverPath = '';
+  try {
+    const res = await fetch('/api/cutter/open', { method: 'POST', body: fd });
+    const data = await res.json();
+    serverPath = data.path || '';
+  } catch(e) {}
+
+  videos.push({
+    file,
+    name: file.name,
+    size: file.size,
+    path: serverPath,
+    title: ''
+  });
+}
+
+// ── 拖拽 ──────────────────────────────
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.add('dragover');
+}
+function onDragLeave(e) {
+  document.getElementById('dropzone').classList.remove('dragover');
+}
+async function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/') || /\.(mp4|mkv|mov|webm|avi)$/i.test(f.name));
+  for (const f of files) await addVideoFile(f);
+  renderVideoList();
+  updateUI();
+}
+
+// ── 渲染视频列表 ─────────────────────
+function renderVideoList() {
+  const list = document.getElementById('videoList');
+  document.getElementById('videoBadge').textContent = videos.length;
+
+  if (videos.length === 0) {
+    list.innerHTML = '';
+    return;
+  }
+
+  list.innerHTML = videos.map((v, i) => `
+    <div class="video-item" id="vi-${i}">
+      <div class="video-item-top">
+        <div class="video-idx">${i + 1}</div>
+        <div class="video-name" title="${v.name}">${v.name}</div>
+        <div class="video-size">${fmtSize(v.size)}</div>
+        <div class="sort-btns">
+          <button class="sort-btn" onclick="moveVideo(${i}, -1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button class="sort-btn" onclick="moveVideo(${i},  1)" ${i === videos.length - 1 ? 'disabled' : ''}>↓</button>
+        </div>
+        <button class="video-del" onclick="removeVideo(${i})">✕</button>
+      </div>
+      <div class="title-row">
+        <span class="title-label">片头文字</span>
+        <input
+          class="title-input"
+          placeholder="留空则不生成片头"
+          value="${escHtml(v.title)}"
+          oninput="videos[${i}].title = this.value; updateFlow()"
+        >
+      </div>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function removeVideo(i) {
+  videos.splice(i, 1);
+  renderVideoList();
+  updateUI();
+}
+
+function moveVideo(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= videos.length) return;
+  [videos[i], videos[j]] = [videos[j], videos[i]];
+  renderVideoList();
+  updateFlow();
+}
+
+// ── 结尾视频 ──────────────────────────
+async function setOutro(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  let serverPath = '';
+  try {
+    const res = await fetch('/api/cutter/open', { method: 'POST', body: fd });
+    const data = await res.json();
+    serverPath = data.path || '';
+  } catch(e) {}
+
+  outroFile = { file, name: file.name, path: serverPath };
+
+  const zone = document.getElementById('outroZone');
+  zone.classList.add('has-file');
+  document.getElementById('outroIcon').textContent = '✅';
+  document.getElementById('outroName').textContent = file.name;
+  document.getElementById('outroHint').textContent = fmtSize(file.size);
+  document.getElementById('outroClear').style.display = 'block';
+  updateFlow();
+}
+
+function clearOutro(e) {
+  e.stopPropagation();
+  outroFile = null;
+  const zone = document.getElementById('outroZone');
+  zone.classList.remove('has-file');
+  document.getElementById('outroIcon').textContent = '📂';
+  document.getElementById('outroName').textContent = '点击选择结尾视频';
+  document.getElementById('outroHint').textContent = '所有合并视频共用同一个结尾';
+  document.getElementById('outroClear').style.display = 'none';
+  updateFlow();
+}
+
+// ── 流程预览 ──────────────────────────
+function updateFlow() {
+  const el = document.getElementById('flowPreview');
+  if (videos.length === 0) {
+    el.innerHTML = '<div class="empty-hint">添加视频后显示预览</div>';
+    return;
+  }
+
+  const dur = document.getElementById('introDuration').value;
+  // 只展示第一个视频的流程
+  const v = videos[0];
+  const hasTitle = v.title.trim() !== '';
+  let html = '';
+
+  if (hasTitle) {
+    html += `
+      <div class="flow-step">
+        <span class="icon">🎞️</span>
+        <div class="label">片头 <strong>${dur}s · "${v.title.trim().slice(0,18)}${v.title.trim().length>18?'…':''}"</strong></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+    `;
+  }
+
+  html += `
+    <div class="flow-step">
+      <span class="icon">📹</span>
+      <div class="label">主视频 <strong>${v.name}</strong></div>
+    </div>
+  `;
+
+  if (outroFile) {
+    html += `
+      <div class="flow-arrow">↓</div>
+      <div class="flow-step">
+        <span class="icon">🏁</span>
+        <div class="label">结尾 <strong>${outroFile.name}</strong></div>
+      </div>
+    `;
+  }
+
+  if (videos.length > 1) {
+    html += `<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px">× ${videos.length} 个视频，结构相同</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+// ── 更新按钮状态 ─────────────────────
+function updateUI() {
+  const btn = document.getElementById('mergeBtn');
+  const hint = document.getElementById('mergeHint');
+  updateFlow();
+
+  if (videos.length === 0) {
+    btn.disabled = true;
+    hint.textContent = '请先添加主视频';
+    return;
+  }
+  btn.disabled = false;
+  hint.textContent = `${videos.length} 个视频将被处理`;
+}
+
+// ── 开始合并 ──────────────────────────
+async function startMerge() {
+  if (videos.length === 0) return;
+
+  // 检查路径
+  const missing = videos.filter(v => !v.path);
+  if (missing.length > 0) {
+    alert(`有 ${missing.length} 个视频路径获取失败，请重新添加`);
+    return;
+  }
+
+  const payload = {
+    videos: videos.map(v => ({ path: v.path, title: v.title.trim() })),
+    outro_path: outroFile ? outroFile.path : '',
+    style: selectedStyle,
+    intro_duration: parseFloat(document.getElementById('introDuration').value) || 2,
+    output_dir: document.getElementById('outputDir').value.trim()
+  };
+
+  showModal(videos.length);
+
+  const res = await fetch('/api/merger/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (data.task_id) {
+    pollTask(data.task_id, videos.length);
+  } else {
+    appendLog('❌ ' + (data.error || '未知错误'));
+  }
+}
+
+// ── 进度弹窗 ──────────────────────────
+function showModal(count) {
+  document.getElementById('modalTitle').textContent = '⚙️ 合并进行中...';
+  document.getElementById('modalLog').textContent = '';
+
+  // 生成每个视频的进度条
+  const list = document.getElementById('progressList');
+  list.innerHTML = videos.map((v, i) => `
+    <div class="progress-item" id="pi-${i}">
+      <div class="pi-label">
+        <strong>${v.name}</strong>
+        <span id="pi-status-${i}">等待中</span>
+      </div>
+      <div class="pi-bar"><div class="pi-fill" id="pi-fill-${i}" style="width:0%"></div></div>
+    </div>
+  `).join('');
+
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.add('hidden');
+}
+
+function appendLog(msg) {
+  const el = document.getElementById('modalLog');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+let lastLogLen = 0;
+
+async function pollTask(taskId, total) {
+  lastLogLen = 0;
+  while (true) {
+    await new Promise(r => setTimeout(r, 800));
+    let data;
+    try {
+      const res = await fetch('/api/merger/task/' + taskId);
+      data = await res.json();
+    } catch(e) { continue; }
+
+    // 追加日志
+    const logs = data.logs || [];
+    for (let i = lastLogLen; i < logs.length; i++) appendLog(logs[i]);
+    lastLogLen = logs.length;
+
+    // 更新各视频进度
+    const progresses = data.progresses || [];
+    progresses.forEach((p, i) => {
+      const fill = document.getElementById(`pi-fill-${i}`);
+      const status = document.getElementById(`pi-status-${i}`);
+      if (!fill) return;
+      fill.style.width = p.pct + '%';
+      if (p.status === 'error') { fill.classList.add('error'); status.textContent = '❌ 失败'; }
+      else if (p.status === 'done') { status.textContent = '✅ 完成'; fill.style.width = '100%'; }
+      else if (p.status === 'running') { status.textContent = '处理中...'; }
+    });
+
+    if (data.status === 'done' || data.status === 'error') {
+      document.getElementById('modalTitle').textContent =
+        data.status === 'done' ? '✅ 全部完成！' : '⚠️ 部分失败';
+      break;
+    }
+  }
+}
+</script>
+</body>
+</html>

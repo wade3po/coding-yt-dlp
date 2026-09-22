@@ -762,6 +762,9 @@
           <div class="nav-item" onclick="nav('dewatermark', this)">
             <span class="nav-icon">🧹</span> 去水印
           </div>
+          <div class="nav-item" onclick="nav('addwatermark', this)">
+            <span class="nav-icon">💧</span> 加水印
+          </div>
           <div class="nav-item" onclick="nav('crawl', this)">
             <span class="nav-icon">🎯</span> 自动抓取
           </div>
@@ -1161,6 +1164,104 @@
               class="err-box"
               style="display: none; margin-top: 14px"
             ></div>
+          </div>
+        </div>
+
+        <!-- ── AddWatermark ── -->
+        <div class="page" id="page-addwatermark">
+          <div class="page-title">💧 加水印</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+            输入视频所在文件夹路径，批量给所有视频右下角烧入「第24格25帧」水印，输出到同目录，文件名加 _水印。
+          </p>
+
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+
+            <!-- 左：设置 -->
+            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:14px">
+              <div class="card">
+                <div class="card-title">水印设置</div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:13px;color:var(--text2);white-space:nowrap;min-width:60px">水印文字</span>
+                    <input id="aw-text" type="text" value="第24格25帧"
+                      style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:14px;font-weight:600;outline:none"
+                      oninput="awUpdatePreview()">
+                  </div>
+
+                  <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:12px;color:var(--text2)">字号</span>
+                      <input id="aw-size" type="number" value="36" min="12" max="80"
+                        style="width:64px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:13px;outline:none;text-align:center"
+                        oninput="awUpdatePreview()">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:12px;color:var(--text2)">颜色</span>
+                      <select id="aw-color" onchange="awUpdatePreview()"
+                        style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:12px;outline:none">
+                        <option value="white" selected>白色</option>
+                        <option value="yellow">黄色</option>
+                        <option value="black">黑色</option>
+                      </select>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:12px;color:var(--text2)">位置</span>
+                      <select id="aw-pos" onchange="awUpdatePreview()"
+                        style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:12px;outline:none">
+                        <option value="br" selected>右下角</option>
+                        <option value="bl">左下角</option>
+                        <option value="tr">右上角</option>
+                        <option value="tl">左上角</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- 预览框 -->
+                  <div style="background:#111;border-radius:var(--r);height:90px;position:relative;border:1px solid var(--border);overflow:hidden">
+                    <span id="aw-preview-text"
+                      style="position:absolute;bottom:10px;right:14px;font-size:15px;color:white;font-weight:500;text-shadow:1px 1px 3px #000,0 0 4px #000">第24格25帧</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右：路径输入 + 文件列表 -->
+            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:10px">
+              <div class="card">
+                <div class="card-title">视频目录</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;gap:8px">
+                    <input id="aw-dir" type="text"
+                      placeholder="粘贴视频所在文件夹路径，例：C:\Users\xxx\Desktop\videos"
+                      style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:12px;outline:none">
+                    <button class="btn btn-sm btn-outline" onclick="awScanDir()" style="white-space:nowrap">📂 扫描</button>
+                  </div>
+                  <div style="font-size:11px;color:var(--text3)">扫描后会列出目录内所有 mp4/mkv/mov 文件，输出文件保存到同目录</div>
+                </div>
+              </div>
+
+              <div class="card" style="flex:1">
+                <div class="card-title" style="display:flex;align-items:center;gap:8px">
+                  视频文件
+                  <span id="aw-badge" style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">0</span>
+                </div>
+                <div id="aw-file-list" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;min-height:60px;max-height:280px;overflow-y:auto">
+                  <div style="text-align:center;color:var(--text3);font-size:12px;padding:24px 0">输入目录路径后点击「扫描」</div>
+                </div>
+              </div>
+
+              <button id="aw-start-btn" onclick="awStart()" disabled
+                style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;opacity:0.4;transition:opacity .15s">
+                💧 开始加水印
+              </button>
+            </div>
+          </div>
+
+          <!-- 进度 -->
+          <div id="aw-result" style="display:none;margin-top:16px" class="card">
+            <div class="card-title">处理进度</div>
+            <div id="aw-log" style="background:#0a0c14;border-radius:var(--r);padding:10px;font-size:12px;font-family:monospace;color:#a3e635;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
           </div>
         </div>
 
@@ -1839,6 +1940,24 @@
                   关闭
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Merger ── -->
+        <div class="page" id="page-merger">
+          <div class="page-title">🎬 视频合并</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+            多选主视频，每个视频单独设置片头文字（自动生成2秒片头），统一拼接结尾，一键批量合并。
+          </p>
+          <div style="display:flex;align-items:center;gap:12px;padding:20px;background:var(--s2);border-radius:var(--r);border:1px solid var(--border)">
+            <div style="font-size:36px">🎬</div>
+            <div>
+              <div style="font-size:14px;font-weight:600;margin-bottom:6px">在独立页面中使用</div>
+              <div style="font-size:13px;color:var(--text2);margin-bottom:12px">视频合并工具需要完整界面，点击下方按钮在新页面中打开。</div>
+              <a href="/merger" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:var(--accent);color:#fff;border-radius:var(--r);text-decoration:none;font-size:13px;font-weight:500">
+                🚀 打开视频合并工具
+              </a>
             </div>
           </div>
         </div>
@@ -2969,6 +3088,125 @@
         el.style.display = "";
         el.textContent = "❌ " + msg;
         toast("发布失败", "err");
+      }
+
+      // ── AddWatermark ──
+      let awFiles = [];  // [{path, name}]
+
+      function awUpdatePreview() {
+        const text  = document.getElementById('aw-text').value || '第24格25帧';
+        const size  = parseInt(document.getElementById('aw-size').value) || 36;
+        const color = document.getElementById('aw-color').value;
+        const pos   = document.getElementById('aw-pos').value;
+        const el    = document.getElementById('aw-preview-text');
+        el.textContent = text;
+        el.style.fontSize = Math.max(10, Math.min(size * 0.45, 22)) + 'px';
+        const colorMap = { white:'#fff', yellow:'#f5c518', black:'#222' };
+        el.style.color = colorMap[color] || '#fff';
+        const posStyle = {
+          br: { bottom:'10px', right:'14px', top:'auto', left:'auto' },
+          bl: { bottom:'10px', left:'14px',  top:'auto', right:'auto' },
+          tr: { top:'10px',    right:'14px', bottom:'auto', left:'auto' },
+          tl: { top:'10px',    left:'14px',  bottom:'auto', right:'auto' },
+        };
+        Object.assign(el.style, posStyle[pos] || posStyle.br);
+      }
+
+      async function awScanDir() {
+        const dir = document.getElementById('aw-dir').value.trim();
+        if (!dir) { toast('请先输入目录路径', 'err'); return; }
+        const res = await fetch('/api/addwatermark/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dir })
+        });
+        const data = await res.json();
+        if (data.error) { toast(data.error, 'err'); return; }
+        awFiles = data.files;  // [{path, name}]
+        awRenderFiles();
+        if (awFiles.length === 0) toast('目录内没有找到视频文件', 'err');
+        else toast(`找到 ${awFiles.length} 个视频文件`);
+      }
+
+      function awRenderFiles() {
+        const badge = document.getElementById('aw-badge');
+        const btn   = document.getElementById('aw-start-btn');
+        badge.textContent = awFiles.length;
+        btn.disabled = awFiles.length === 0;
+        btn.style.opacity = awFiles.length === 0 ? '0.4' : '1';
+        const list = document.getElementById('aw-file-list');
+        if (awFiles.length === 0) {
+          list.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:24px 0">输入目录路径后点击「扫描」</div>';
+          return;
+        }
+        list.innerHTML = awFiles.map((f, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:var(--r);border:1px solid var(--border)">
+            <span style="font-size:16px">🎬</span>
+            <span style="flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${f.path}">${f.name}</span>
+            <span id="aw-status-${i}" style="font-size:13px;flex-shrink:0">⏳</span>
+          </div>
+        `).join('');
+      }
+
+      async function awStart() {
+        const text = document.getElementById('aw-text').value.trim();
+        if (!text) { toast('请输入水印文字', 'err'); return; }
+        if (awFiles.length === 0) { toast('请先扫描目录', 'err'); return; }
+
+        awFiles.forEach((_, i) => {
+          const el = document.getElementById('aw-status-' + i);
+          if (el) el.textContent = '⏳';
+        });
+
+        const payload = {
+          files:    awFiles.map(f => f.path),
+          text,
+          fontsize: parseInt(document.getElementById('aw-size').value) || 36,
+          color:    document.getElementById('aw-color').value,
+          position: document.getElementById('aw-pos').value,
+        };
+
+        document.getElementById('aw-result').style.display = 'block';
+        document.getElementById('aw-log').textContent = '';
+        document.getElementById('aw-start-btn').disabled = true;
+        document.getElementById('aw-start-btn').style.opacity = '0.4';
+
+        const res = await fetch('/api/addwatermark/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.task_id) { awLog('❌ ' + (data.error || '启动失败')); return; }
+        awPoll(data.task_id);
+      }
+
+      async function awPoll(taskId) {
+        let lastLen = 0;
+        while (true) {
+          await new Promise(r => setTimeout(r, 900));
+          let data;
+          try { const r = await fetch('/api/addwatermark/task/' + taskId); data = await r.json(); } catch(e) { continue; }
+          const logs = data.logs || [];
+          for (let i = lastLen; i < logs.length; i++) awLog(logs[i]);
+          lastLen = logs.length;
+          (data.progresses || []).forEach((p, i) => {
+            const el = document.getElementById('aw-status-' + i);
+            if (!el) return;
+            el.textContent = p.status === 'done' ? '✅' : p.status === 'error' ? '❌' : '⏳';
+          });
+          if (data.status === 'done' || data.status === 'error') {
+            document.getElementById('aw-start-btn').disabled = false;
+            document.getElementById('aw-start-btn').style.opacity = '1';
+            break;
+          }
+        }
+      }
+
+      function awLog(msg) {
+        const el = document.getElementById('aw-log');
+        el.textContent += msg + '\n';
+        el.scrollTop = el.scrollHeight;
       }
 
       // ── Dewatermark ──
