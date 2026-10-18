@@ -780,6 +780,9 @@
           <div class="nav-item" onclick="nav('composer', this)">
             <span class="nav-icon">🎞</span> 视频合成
           </div>
+          <div class="nav-item" onclick="nav('textvideo', this)">
+            <span class="nav-icon">✍️</span> 文字视频
+          </div>
           <div class="nav-item" onclick="nav('settings', this)">
             <span class="nav-icon">⚙</span> 设置
           </div>
@@ -1171,83 +1174,53 @@
         <div class="page" id="page-addwatermark">
           <div class="page-title">💧 加水印</div>
           <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
-            输入视频所在文件夹路径，批量给所有视频右下角烧入「第24格25帧」水印，输出到同目录，文件名加 _水印。
+            填入视频目录路径自动扫描，设置输出目录，路径自动记住。
           </p>
 
-          <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
 
             <!-- 左：设置 -->
-            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:14px">
+            <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;gap:12px">
+
               <div class="card">
                 <div class="card-title">水印设置</div>
-                <div style="display:flex;flex-direction:column;gap:12px">
-
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <span style="font-size:13px;color:var(--text2);white-space:nowrap;min-width:60px">水印文字</span>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div>
+                    <div style="font-size:11px;color:var(--text2);margin-bottom:4px">水印文字</div>
                     <input id="aw-text" type="text" value="第24格25帧"
-                      style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:14px;font-weight:600;outline:none"
+                      style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:14px;font-weight:600;outline:none"
                       oninput="awUpdatePreview()">
                   </div>
-
-                  <div style="display:flex;gap:12px;flex-wrap:wrap">
-                    <div style="display:flex;align-items:center;gap:8px">
-                      <span style="font-size:12px;color:var(--text2)">字号</span>
+                  <div style="display:flex;gap:8px">
+                    <div style="flex:1">
+                      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">字号</div>
                       <input id="aw-size" type="number" value="36" min="12" max="80"
-                        style="width:64px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:13px;outline:none;text-align:center"
+                        style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:13px;outline:none;text-align:center"
                         oninput="awUpdatePreview()">
                     </div>
-                    <div style="display:flex;align-items:center;gap:8px">
-                      <span style="font-size:12px;color:var(--text2)">颜色</span>
+                    <div style="flex:1">
+                      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">颜色</div>
                       <select id="aw-color" onchange="awUpdatePreview()"
-                        style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:12px;outline:none">
+                        style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:12px;outline:none">
                         <option value="white" selected>白色</option>
                         <option value="yellow">黄色</option>
                         <option value="black">黑色</option>
                       </select>
                     </div>
-                    <div style="display:flex;align-items:center;gap:8px">
-                      <span style="font-size:12px;color:var(--text2)">位置</span>
-                      <select id="aw-pos" onchange="awUpdatePreview()"
-                        style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:12px;outline:none">
-                        <option value="br" selected>右下角</option>
-                        <option value="bl">左下角</option>
-                        <option value="tr">右上角</option>
-                        <option value="tl">左上角</option>
-                      </select>
-                    </div>
                   </div>
-
-                  <!-- 预览框 -->
-                  <div style="background:#111;border-radius:var(--r);height:90px;position:relative;border:1px solid var(--border);overflow:hidden">
-                    <span id="aw-preview-text"
-                      style="position:absolute;bottom:10px;right:14px;font-size:15px;color:white;font-weight:500;text-shadow:1px 1px 3px #000,0 0 4px #000">第24格25帧</span>
+                  <div>
+                    <div style="font-size:11px;color:var(--text2);margin-bottom:4px">位置</div>
+                    <select id="aw-pos" onchange="awUpdatePreview()"
+                      style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:12px;outline:none">
+                      <option value="br" selected>右下角</option>
+                      <option value="bl">左下角</option>
+                      <option value="tr">右上角</option>
+                      <option value="tl">左上角</option>
+                    </select>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 右：路径输入 + 文件列表 -->
-            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:10px">
-              <div class="card">
-                <div class="card-title">视频目录</div>
-                <div style="display:flex;flex-direction:column;gap:8px">
-                  <div style="display:flex;gap:8px">
-                    <input id="aw-dir" type="text"
-                      placeholder="粘贴视频所在文件夹路径，例：C:\Users\xxx\Desktop\videos"
-                      style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:12px;outline:none">
-                    <button class="btn btn-sm btn-outline" onclick="awScanDir()" style="white-space:nowrap">📂 扫描</button>
+                  <div style="background:#111;border-radius:var(--r);height:72px;position:relative;border:1px solid var(--border);overflow:hidden">
+                    <span id="aw-preview-text" style="position:absolute;bottom:8px;right:10px;font-size:13px;color:white;font-weight:500;text-shadow:1px 1px 3px #000,0 0 4px #000">第24格25帧</span>
                   </div>
-                  <div style="font-size:11px;color:var(--text3)">扫描后会列出目录内所有 mp4/mkv/mov 文件，输出文件保存到同目录</div>
-                </div>
-              </div>
-
-              <div class="card" style="flex:1">
-                <div class="card-title" style="display:flex;align-items:center;gap:8px">
-                  视频文件
-                  <span id="aw-badge" style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">0</span>
-                </div>
-                <div id="aw-file-list" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;min-height:60px;max-height:280px;overflow-y:auto">
-                  <div style="text-align:center;color:var(--text3);font-size:12px;padding:24px 0">输入目录路径后点击「扫描」</div>
                 </div>
               </div>
 
@@ -1255,6 +1228,41 @@
                 style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;opacity:0.4;transition:opacity .15s">
                 💧 开始加水印
               </button>
+            </div>
+
+            <!-- 右：路径 + 文件列表 -->
+            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px">
+
+              <!-- 输入目录 -->
+              <div class="card">
+                <div class="card-title">视频目录 <span style="font-size:10px;color:var(--text3);font-weight:400">路径自动记住</span></div>
+                <div style="display:flex;gap:8px">
+                  <input id="aw-indir" type="text" placeholder="粘贴视频所在文件夹路径"
+                    style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:12px;outline:none"
+                    onkeydown="if(event.key==='Enter')awScan()">
+                  <button class="btn btn-primary" style="white-space:nowrap;font-size:13px" onclick="awScan()">📂 扫描</button>
+                </div>
+              </div>
+
+              <!-- 输出目录 -->
+              <div class="card">
+                <div class="card-title">输出目录 <span style="font-size:10px;color:var(--text3);font-weight:400">路径自动记住</span></div>
+                <input id="aw-outdir" type="text" placeholder="留空则输出到原视频同目录，文件名加 _水印"
+                  style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:12px;outline:none"
+                  oninput="localStorage.setItem('aw_outdir', this.value)">
+              </div>
+
+              <!-- 扫描到的文件列表 -->
+              <div class="card">
+                <div class="card-title" style="display:flex;align-items:center;gap:8px">
+                  扫描到的视频
+                  <span id="aw-badge" style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">0</span>
+                </div>
+                <div id="aw-file-list" style="display:flex;flex-direction:column;gap:5px;margin-top:8px;max-height:320px;overflow-y:auto">
+                  <div style="text-align:center;color:var(--text3);font-size:12px;padding:24px 0">填入目录路径后点击「扫描」</div>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -2243,19 +2251,34 @@
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <div class="card-title" style="margin:0;">主体视频</div>
-              <label class="btn btn-outline btn-sm" style="cursor:pointer;">
-                ＋ 添加视频
-                <input type="file" accept="video/*" multiple style="display:none" onchange="cpAddClips(this)"/>
-              </label>
+            </div>
+            <!-- 目录扫描输入 -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input type="text" id="cp-indir"
+                placeholder="粘贴视频所在文件夹路径，回车或点扫描"
+                style="flex:1;height:38px;padding:0 12px;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;color:var(--text);"
+                onfocus="this.style.borderColor='var(--accent)'"
+                onblur="this.style.borderColor='var(--border)';localStorage.setItem('cp_indir',this.value)"
+                onkeydown="if(event.key==='Enter')cpScanDir()"/>
+              <button class="btn btn-primary" onclick="cpScanDir()" style="height:38px;padding:0 18px;white-space:nowrap;">📂 扫描</button>
             </div>
             <div id="cp-clips-list">
-              <div class="empty" id="cp-clips-empty">还没有添加视频</div>
+              <div class="empty" id="cp-clips-empty">填入目录路径后点击「扫描」</div>
             </div>
           </div>
 
-          <!-- 开始按钮 -->
-          <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-            <button class="btn btn-primary" id="cp-start-btn" onclick="cpStart()" style="height:44px;padding:0 28px;font-size:14px;">
+          <!-- 输出目录 + 开始按钮 -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <div style="flex:1">
+              <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">输出目录 <span style="color:var(--text3);font-size:11px">（留空则自动生成到下载目录，路径自动记住）</span></div>
+              <input type="text" id="cp-outdir"
+                placeholder="例：C:\Users\xxx\Desktop\output，留空自动"
+                style="width:100%;height:38px;padding:0 12px;background:var(--s2);border:1.5px solid var(--border);
+                       border-radius:8px;font-size:13px;outline:none;color:var(--text);"
+                onfocus="this.style.borderColor='var(--accent)'"
+                onblur="this.style.borderColor='var(--border)';localStorage.setItem('cp_outdir',this.value)"/>
+            </div>
+            <button class="btn btn-primary" id="cp-start-btn" onclick="cpStart()" style="height:38px;padding:0 28px;font-size:14px;margin-top:20px;white-space:nowrap;">
               🚀 开始批量生成
             </button>
           </div>
@@ -2274,6 +2297,91 @@
               <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:6px;">🎉 全部完成！</div>
               <div id="cp-result-files" style="font-size:12px;color:var(--text2);line-height:1.8;"></div>
             </div>
+          </div>
+        </div>
+
+        <!-- ── TextVideo ── -->
+        <div class="page" id="page-textvideo">
+          <div class="page-title">✍️ 文字视频</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+            选择背景视频和音乐，输入标题，添加多条文案（每条按逗号自动切割成段落），生成带文字动效的视频。
+          </p>
+
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+
+            <!-- 左：配置区 -->
+            <div style="width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px">
+
+              <!-- 背景视频 -->
+              <div class="card">
+                <div class="card-title">背景视频</div>
+                <div id="tv-bg-list" style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+                  <div style="font-size:12px;color:var(--text3)">加载中…</div>
+                </div>
+              </div>
+
+              <!-- 背景音乐 -->
+              <div class="card">
+                <div class="card-title">背景音乐</div>
+                <select id="tv-music"
+                  style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:6px 10px;font-size:12px;outline:none;margin-bottom:8px">
+                  <option value="">不加音乐</option>
+                </select>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:var(--text2);white-space:nowrap">从第</span>
+                  <input id="tv-music-start" type="number" value="0" min="0" step="0.1"
+                    style="width:80px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:13px;outline:none;text-align:center">
+                  <span style="font-size:12px;color:var(--text2)">秒开始</span>
+                </div>
+              </div>
+
+              <!-- 标题 -->
+              <div class="card">
+                <div class="card-title">标题</div>
+                <input id="tv-title" type="text" placeholder="例：第一次读就很震撼的诗词"
+                  style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:14px;font-weight:600;outline:none">
+              </div>
+
+              <!-- 输出目录 -->
+              <div class="card">
+                <div class="card-title">输出目录 <span style="font-size:10px;color:var(--text3);font-weight:400">自动记住</span></div>
+                <input id="tv-outdir" type="text" placeholder="留空则自动保存到下载目录"
+                  style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:6px 10px;font-size:12px;outline:none"
+                  oninput="localStorage.setItem('tv_outdir', this.value)">
+              </div>
+
+              <button id="tv-gen-btn" onclick="tvGenerate()" disabled
+                style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;opacity:0.4;transition:opacity .15s">
+                🎬 开始生成
+              </button>
+            </div>
+
+            <!-- 右：文案区 -->
+            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px">
+              <div class="card">
+                <div class="card-title" style="display:flex;align-items:center;gap:8px">
+                  文案内容
+                  <span style="font-size:11px;color:var(--text3);font-weight:400">每条用逗号分隔，生成时自动切割成段落、去掉标点</span>
+                  <span style="flex:1"></span>
+                  <button class="btn btn-sm btn-outline" style="font-size:12px" onclick="tvAddEntry()">＋ 添加文案</button>
+                </div>
+                <div id="tv-entries" style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+                  <!-- 动态添加 -->
+                </div>
+              </div>
+
+              <!-- 段落预览 -->
+              <div class="card" id="tv-preview-card" style="display:none">
+                <div class="card-title">段落预览 <span id="tv-seg-count" style="color:var(--accent);font-size:12px"></span></div>
+                <div id="tv-preview-list" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;max-height:200px;overflow-y:auto"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 进度 -->
+          <div id="tv-result" style="display:none;margin-top:16px" class="card">
+            <div class="card-title" id="tv-result-title">⚙️ 生成中…</div>
+            <div id="tv-log" style="background:#0a0c14;border-radius:var(--r);padding:10px;font-size:12px;font-family:monospace;color:#a3e635;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
           </div>
         </div>
 
@@ -2302,7 +2410,29 @@
         if (page === "files") loadFiles();
         if (page === "settings") loadCookieStatus();
         if (page === "dewatermark") loadDwFiles();
-        if (page === "publish") {
+        if (page === "addwatermark") {
+          const indir  = localStorage.getItem('aw_indir')  || '';
+          const outdir = localStorage.getItem('aw_outdir') || '';
+          const inEl  = document.getElementById('aw-indir');
+          const outEl = document.getElementById('aw-outdir');
+          if (inEl  && indir)  inEl.value  = indir;
+          if (outEl && outdir) outEl.value = outdir;
+        }
+        if (page === "composer") {
+          const outdir = localStorage.getItem('cp_outdir') || '';
+          const indir  = localStorage.getItem('cp_indir')  || '';
+          const outEl = document.getElementById('cp-outdir');
+          const inEl  = document.getElementById('cp-indir');
+          if (outEl && outdir) outEl.value = outdir;
+          if (inEl  && indir)  inEl.value  = indir;
+          setTimeout(cpCheckFiles, 0);
+        }
+        if (page === "textvideo") {
+          const outdir = localStorage.getItem('tv_outdir') || '';
+          const outEl = document.getElementById('tv-outdir');
+          if (outEl && outdir) outEl.value = outdir;
+          tvLoadAssets();
+        }        if (page === "publish") {
           loadPublishStatus();
           loadPubFiles();
         }
@@ -3093,6 +3223,14 @@
       // ── AddWatermark ──
       let awFiles = [];  // [{path, name}]
 
+      // 页面加载时恢复保存的路径
+      (function awInit() {
+        const indir  = localStorage.getItem('aw_indir')  || '';
+        const outdir = localStorage.getItem('aw_outdir') || '';
+        if (indir)  { const el = document.getElementById('aw-indir');  if(el) el.value = indir; }
+        if (outdir) { const el = document.getElementById('aw-outdir'); if(el) el.value = outdir; }
+      })();
+
       function awUpdatePreview() {
         const text  = document.getElementById('aw-text').value || '第24格25帧';
         const size  = parseInt(document.getElementById('aw-size').value) || 36;
@@ -3100,21 +3238,23 @@
         const pos   = document.getElementById('aw-pos').value;
         const el    = document.getElementById('aw-preview-text');
         el.textContent = text;
-        el.style.fontSize = Math.max(10, Math.min(size * 0.45, 22)) + 'px';
+        el.style.fontSize = Math.max(10, Math.min(size * 0.4, 20)) + 'px';
         const colorMap = { white:'#fff', yellow:'#f5c518', black:'#222' };
         el.style.color = colorMap[color] || '#fff';
         const posStyle = {
-          br: { bottom:'10px', right:'14px', top:'auto', left:'auto' },
-          bl: { bottom:'10px', left:'14px',  top:'auto', right:'auto' },
-          tr: { top:'10px',    right:'14px', bottom:'auto', left:'auto' },
-          tl: { top:'10px',    left:'14px',  bottom:'auto', right:'auto' },
+          br: { bottom:'8px', right:'10px', top:'auto', left:'auto' },
+          bl: { bottom:'8px', left:'10px',  top:'auto', right:'auto' },
+          tr: { top:'8px',    right:'10px', bottom:'auto', left:'auto' },
+          tl: { top:'8px',    left:'10px',  bottom:'auto', right:'auto' },
         };
         Object.assign(el.style, posStyle[pos] || posStyle.br);
       }
 
-      async function awScanDir() {
-        const dir = document.getElementById('aw-dir').value.trim();
-        if (!dir) { toast('请先输入目录路径', 'err'); return; }
+      async function awScan() {
+        const dir = document.getElementById('aw-indir').value.trim();
+        if (!dir) { toast('请填入视频目录路径', 'err'); return; }
+        localStorage.setItem('aw_indir', dir);
+
         const res = await fetch('/api/addwatermark/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3122,10 +3262,10 @@
         });
         const data = await res.json();
         if (data.error) { toast(data.error, 'err'); return; }
-        awFiles = data.files;  // [{path, name}]
+        awFiles = data.files;
         awRenderFiles();
         if (awFiles.length === 0) toast('目录内没有找到视频文件', 'err');
-        else toast(`找到 ${awFiles.length} 个视频文件`);
+        else toast(`找到 ${awFiles.length} 个视频`);
       }
 
       function awRenderFiles() {
@@ -3136,35 +3276,31 @@
         btn.style.opacity = awFiles.length === 0 ? '0.4' : '1';
         const list = document.getElementById('aw-file-list');
         if (awFiles.length === 0) {
-          list.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:24px 0">输入目录路径后点击「扫描」</div>';
+          list.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:24px 0">填入目录路径后点击「扫描」</div>';
           return;
         }
         list.innerHTML = awFiles.map((f, i) => `
           <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:var(--r);border:1px solid var(--border)">
-            <span style="font-size:16px">🎬</span>
-            <span style="flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${f.path}">${f.name}</span>
+            <span style="font-size:15px">🎬</span>
+            <span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.path}">${f.name}</span>
+            <span style="font-size:11px;color:var(--text3);flex-shrink:0">${f.size}MB</span>
             <span id="aw-status-${i}" style="font-size:13px;flex-shrink:0">⏳</span>
           </div>
         `).join('');
       }
 
       async function awStart() {
+        if (awFiles.length === 0) { toast('请先扫描目录', 'err'); return; }
         const text = document.getElementById('aw-text').value.trim();
         if (!text) { toast('请输入水印文字', 'err'); return; }
-        if (awFiles.length === 0) { toast('请先扫描目录', 'err'); return; }
+        const outdir = document.getElementById('aw-outdir').value.trim();
+        localStorage.setItem('aw_outdir', outdir);
 
+        // 重置状态
         awFiles.forEach((_, i) => {
           const el = document.getElementById('aw-status-' + i);
           if (el) el.textContent = '⏳';
         });
-
-        const payload = {
-          files:    awFiles.map(f => f.path),
-          text,
-          fontsize: parseInt(document.getElementById('aw-size').value) || 36,
-          color:    document.getElementById('aw-color').value,
-          position: document.getElementById('aw-pos').value,
-        };
 
         document.getElementById('aw-result').style.display = 'block';
         document.getElementById('aw-log').textContent = '';
@@ -3174,7 +3310,14 @@
         const res = await fetch('/api/addwatermark/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            files:    awFiles.map(f => f.path),
+            text,
+            fontsize: parseInt(document.getElementById('aw-size').value) || 36,
+            color:    document.getElementById('aw-color').value,
+            position: document.getElementById('aw-pos').value,
+            out_dir:  outdir
+          })
         });
         const data = await res.json();
         if (!data.task_id) { awLog('❌ ' + (data.error || '启动失败')); return; }
@@ -4401,10 +4544,9 @@
 
     <script>
     // ── 视频合成 Composer ─────────────────────────────────────────────────────
-    let cpClips     = [];   // [{file, path, rowId}]
+    let cpClips     = [];   // [{path, name, rowId}]
     let cpPollTimer = null;
 
-    // 页面切换到 composer 时检测 start/end
     async function cpCheckFiles() {
       const el = document.getElementById('cp-se-status');
       try {
@@ -4419,61 +4561,53 @@
       }
     }
 
-    document.querySelectorAll('.nav-item').forEach(item => {
-      if (item.textContent.includes('视频合成')) {
-        item.addEventListener('click', () => setTimeout(cpCheckFiles, 0));
-      }
-    });
+    async function cpScanDir() {
+      const dir = document.getElementById('cp-indir').value.trim();
+      if (!dir) { toast('请填入视频目录路径', 'err'); return; }
+      localStorage.setItem('cp_indir', dir);
 
-    async function cpAddClips(input) {
-      const files = Array.from(input.files);
-      if (!files.length) return;
-      document.getElementById('cp-clips-empty').style.display = 'none';
+      const res = await fetch('/api/addwatermark/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dir })
+      });
+      const data = await res.json();
+      if (data.error) { toast(data.error, 'err'); return; }
+
+      cpClips = [];
       const listEl = document.getElementById('cp-clips-list');
+      document.getElementById('cp-clips-empty').style.display = 'none';
+      listEl.innerHTML = '';
 
-      for (const file of files) {
-        const idx   = cpClips.length;
-        const rowId = 'cprow_' + idx + '_' + Date.now();
-        const row   = document.createElement('div');
+      if (data.files.length === 0) {
+        toast('目录内没有找到视频文件', 'err');
+        document.getElementById('cp-clips-empty').style.display = '';
+        return;
+      }
+
+      data.files.forEach((f, idx) => {
+        const rowId = 'cprow_' + idx;
+        cpClips.push({ path: f.path, name: f.name, rowId });
+        const row = document.createElement('div');
         row.id = rowId;
         row.style.cssText = 'display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;background:var(--s2);border-radius:8px;margin-bottom:8px;border:1.5px solid var(--border);';
         row.innerHTML = `
-          <span style="font-size:20px;">⏳</span>
+          <span style="font-size:20px;">🎬</span>
           <div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${file.name}</div>
-            <input type="text" placeholder="输入标题（烧入视频）" data-idx="${idx}"
+            <div style="font-size:12px;color:var(--text2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.path}">${f.name}</div>
+            <input type="text" placeholder="输入标题（烧入视频，留空不烧）"
               style="width:100%;padding:6px 10px;background:white;border:1.5px solid var(--border);border-radius:6px;font-size:13px;outline:none;"
               onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
               class="cp-title-input"/>
           </div>
-          <button onclick="cpRemoveClip(${idx},'${rowId}')"
+          <button onclick="cpRemoveClip('${rowId}')"
             style="width:28px;height:28px;border:none;background:var(--red-bg);color:var(--red);border-radius:6px;cursor:pointer;font-size:15px;">×</button>
         `;
         listEl.appendChild(row);
-
-        // 上传文件
-        const fd = new FormData();
-        fd.append('file', file);
-        const iconEl = row.querySelector('span');
-        try {
-          const r = await fetch('/api/composer/upload', { method: 'POST', body: fd });
-          const d = await r.json();
-          if (d.ok) {
-            cpClips.push({ path: d.path, rowId });
-            iconEl.textContent = '🎬';
-          } else {
-            iconEl.textContent = '❌';
-            cpClips.push({ path: '', rowId });
-          }
-        } catch(e) {
-          iconEl.textContent = '❌';
-          cpClips.push({ path: '', rowId });
-        }
-      }
-      input.value = '';
+      });
+      toast(`找到 ${data.files.length} 个视频`);
     }
-
-    function cpRemoveClip(idx, rowId) {
+    function cpRemoveClip(rowId) {
       cpClips = cpClips.filter(c => c.rowId !== rowId);
       const row = document.getElementById(rowId);
       if (row) row.remove();
@@ -4504,10 +4638,12 @@
       document.getElementById('cp-progress-card').scrollIntoView({ behavior: 'smooth' });
 
       try {
+        const outDir = document.getElementById('cp-outdir')?.value.trim() || '';
+        if (outDir) localStorage.setItem('cp_outdir', outDir);
         const r = await fetch('/api/composer/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ movie_name: movieName, clips })
+          body: JSON.stringify({ movie_name: movieName, clips, out_dir: outDir })
         });
         const d = await r.json();
         if (d.error) { toast(d.error, 'err'); document.getElementById('cp-start-btn').disabled = false; return; }
@@ -4552,6 +4688,261 @@
         } catch(e) { /* ignore */ }
       }, 1500);
     }
+
+    // ── 文字视频 TextVideo ────────────────────────────────────────────────────
+    let tvSelectedBg   = '';
+    let tvEntryCount   = 0;
+    let tvAssetsDir    = '';   // 当前资源目录
+
+    async function tvLoadAssets(customDir) {
+      const dir = customDir || localStorage.getItem('tv_assets_dir') || '';
+      const url = '/api/textvideo/assets' + (dir ? '?dir=' + encodeURIComponent(dir) : '');
+      try {
+        const r = await fetch(url);
+        const d = await r.json();
+        if (!d.ok) {
+          tvShowDirPicker(d.error);
+          return;
+        }
+        tvAssetsDir = d.dir;
+        localStorage.setItem('tv_assets_dir', d.dir);
+        if (d.videos.length === 0 && d.music.length === 0) {
+          tvShowDirPicker(`目录「${d.dir}」内没有找到视频/音频文件`);
+          return;
+        }
+        tvHideDirPicker();
+        tvRenderBgList(d.videos || []);
+        tvRenderMusicList(d.music || []);
+      } catch(e) {
+        tvShowDirPicker('加载失败，请检查服务是否运行');
+      }
+    }
+
+    function tvShowDirPicker(errMsg) {
+      const bgList = document.getElementById('tv-bg-list');
+      const savedDir = localStorage.getItem('tv_assets_dir') || '';
+      bgList.innerHTML = `
+        <div style="padding:10px;background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:var(--r);margin-bottom:8px">
+          <div style="font-size:12px;color:var(--red);margin-bottom:6px">⚠️ ${errMsg}</div>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">手动填入资源文件夹路径：</div>
+        <div style="display:flex;gap:6px">
+          <input id="tv-assets-dir-input" type="text" value="${savedDir}"
+            placeholder="例：C:\\Users\\xxx\\Desktop\\my_assets"
+            style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:6px 10px;font-size:12px;outline:none"
+            onkeydown="if(event.key==='Enter')tvApplyDir()">
+          <button class="btn btn-primary" style="font-size:12px;padding:5px 12px" onclick="tvApplyDir()">确认</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">文件夹内放 .mp4 背景视频和 .mp3 背景音乐</div>
+      `;
+      // 清空音乐列表
+      const sel = document.getElementById('tv-music');
+      sel.innerHTML = '<option value="">不加音乐</option>';
+    }
+
+    function tvHideDirPicker() {
+      // 正常加载后不需要特殊处理，渲染函数会覆盖
+    }
+
+    function tvApplyDir() {
+      const input = document.getElementById('tv-assets-dir-input');
+      if (!input) return;
+      const dir = input.value.trim();
+      if (!dir) { toast('请填入目录路径', 'err'); return; }
+      localStorage.setItem('tv_assets_dir', dir);
+      // 重置音乐列表再加载
+      const sel = document.getElementById('tv-music');
+      sel.innerHTML = '<option value="">不加音乐</option>';
+      tvLoadAssets(dir);
+    }
+
+    function tvRenderBgList(videos) {
+      const el = document.getElementById('tv-bg-list');
+      if (!videos.length) {
+        el.innerHTML = '<div style="font-size:12px;color:var(--text3)">目录内没有视频文件</div>';
+        return;
+      }
+      el.innerHTML = videos.map(v => `
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;
+          background:var(--panel2);border:1.5px solid var(--border);border-radius:var(--r);
+          cursor:pointer;transition:border-color .15s">
+          <input type="radio" name="tv-bg"
+            data-path="${v.path.replace(/"/g,'&quot;')}"
+            onchange="tvSelectBg(this)"
+            style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0">
+          <span style="font-size:13px">${v.label}</span>
+        </label>
+      `).join('');
+    }
+
+    function tvSelectBg(radioEl) {
+      tvSelectedBg = radioEl.dataset.path;
+      tvCheckReady();
+    }
+
+    function tvRenderMusicList(music) {
+      const sel = document.getElementById('tv-music');
+      sel.innerHTML = '<option value="">不加音乐</option>';
+      music.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.path;
+        opt.textContent = m.label;
+        sel.appendChild(opt);
+      });
+    }
+
+    function tvAddEntry() {
+      tvEntryCount++;
+      const id = 'tventry_' + tvEntryCount;
+      const container = document.getElementById('tv-entries');
+      const div = document.createElement('div');
+      div.id = id;
+      div.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--panel2);border:1.5px solid var(--border);border-radius:var(--r)';
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--text2);font-weight:600">文案 ${tvEntryCount}</span>
+          <span style="font-size:11px;color:var(--text3)">用逗号分隔多个段落</span>
+          <span style="flex:1"></span>
+          <button onclick="tvRemoveEntry('${id}')"
+            style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px 6px;border-radius:4px"
+            onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
+        </div>
+        <textarea
+          placeholder="例：春风得意马蹄疾，一日看尽长安花"
+          oninput="tvUpdatePreview()"
+          style="width:100%;min-height:64px;resize:vertical;background:var(--s2);border:1px solid var(--border);
+            border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:13px;outline:none;
+            font-family:inherit;line-height:1.6"
+          onfocus="this.style.borderColor='var(--accent2)'"
+          onblur="this.style.borderColor='var(--border)'"></textarea>
+      `;
+      container.appendChild(div);
+      tvCheckReady();
+      tvUpdatePreview();
+    }
+
+    function tvRemoveEntry(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+      tvCheckReady();
+      tvUpdatePreview();
+    }
+
+    function tvUpdatePreview() {
+      const textareas = Array.from(
+        document.querySelectorAll('#tv-entries textarea')
+      );
+      const scenes = textareas
+        .map(t => t.value.trim())
+        .filter(Boolean)
+        .map(t => t.split(/[,，]/).map(s =>
+          s.replace(/[，。！？、；：,.!?;:\s\u3000]+/g, '').trim()
+        ).filter(Boolean));
+
+      const card = document.getElementById('tv-preview-card');
+      const list = document.getElementById('tv-preview-list');
+      const cnt  = document.getElementById('tv-seg-count');
+
+      if (!scenes.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      cnt.textContent = `共 ${scenes.length} 个画面`;
+
+      list.innerHTML = scenes.map((lines, i) => `
+        <div style="padding:6px 10px;background:var(--s2);border-radius:var(--r);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--accent);margin-bottom:4px">画面 ${i+1} · ${lines.length} 行</div>
+          ${lines.map((l, j) => `
+            <div style="font-size:13px;padding:1px 0;${j>0?'color:var(--text2)':''}">
+              ${j>0?'└ ':''} ${l}
+            </div>`).join('')}
+        </div>
+      `).join('');
+    }
+
+    function tvCheckReady() {
+      const hasTitle = document.getElementById('tv-title')?.value.trim();
+      const hasEntries = document.querySelectorAll('#tv-entries textarea').length > 0;
+      const hasBg = !!tvSelectedBg;
+      const btn = document.getElementById('tv-gen-btn');
+      if (!btn) return;
+      const ok = hasTitle && hasEntries && hasBg;
+      btn.disabled = !ok;
+      btn.style.opacity = ok ? '1' : '0.4';
+    }
+
+    document.addEventListener('input', e => {
+      if (e.target.id === 'tv-title') tvCheckReady();
+    });
+
+    async function tvGenerate() {
+      const title  = document.getElementById('tv-title').value.trim();
+      const outdir = document.getElementById('tv-outdir').value.trim();
+      const music  = document.getElementById('tv-music').value;
+      const musicStart = parseFloat(document.getElementById('tv-music-start').value) || 0;
+
+      const scripts = Array.from(
+        document.querySelectorAll('#tv-entries textarea')
+      ).map(t => t.value.trim()).filter(Boolean);
+
+      if (!title)          { toast('请填写标题', 'err'); return; }
+      if (!scripts.length) { toast('请添加文案', 'err'); return; }
+      if (!tvSelectedBg)   { toast('请选择背景视频', 'err'); return; }
+
+      if (outdir) localStorage.setItem('tv_outdir', outdir);
+
+      document.getElementById('tv-result').style.display = 'block';
+      document.getElementById('tv-log').textContent = '';
+      document.getElementById('tv-result-title').textContent = '⚙️ 生成中…';
+      document.getElementById('tv-gen-btn').disabled = true;
+      document.getElementById('tv-gen-btn').style.opacity = '0.4';
+
+      const res = await fetch('/api/textvideo/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          scripts,
+          bg_video: tvSelectedBg,
+          bg_music: music,
+          music_start: musicStart,
+          out_dir: outdir
+        })
+      });
+      const data = await res.json();
+      if (!data.task_id) {
+        tvLog('❌ ' + (data.error || '启动失败'));
+        document.getElementById('tv-gen-btn').disabled = false;
+        document.getElementById('tv-gen-btn').style.opacity = '1';
+        return;
+      }
+      tvPoll(data.task_id);
+    }
+
+    async function tvPoll(taskId) {
+      let lastLen = 0;
+      while (true) {
+        await new Promise(r => setTimeout(r, 1200));
+        let data;
+        try { const r = await fetch('/api/textvideo/task/' + taskId); data = await r.json(); }
+        catch(e) { continue; }
+        const logs = data.logs || [];
+        for (let i = lastLen; i < logs.length; i++) tvLog(logs[i]);
+        lastLen = logs.length;
+        if (data.status === 'done' || data.status === 'error') {
+          document.getElementById('tv-result-title').textContent =
+            data.status === 'done' ? '✅ 生成完成！' : '❌ 生成失败';
+          document.getElementById('tv-gen-btn').disabled = false;
+          document.getElementById('tv-gen-btn').style.opacity = '1';
+          break;
+        }
+      }
+    }
+
+    function tvLog(msg) {
+      const el = document.getElementById('tv-log');
+      el.textContent += msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+
     </script>
   </body>
 </html>

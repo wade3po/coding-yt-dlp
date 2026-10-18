@@ -1688,6 +1688,7 @@ def composer_start():
     data = request.json or {}
     movie_name = data.get('movie_name', '').strip()
     clips      = data.get('clips', [])
+    out_dir_custom = data.get('out_dir', '').strip()
 
     start_path = os.path.join(BASE_DIR, 'start.mp4')
     end_path   = os.path.join(BASE_DIR, 'end.mp4')
@@ -1717,7 +1718,10 @@ def composer_start():
 
         ffmpeg_bin = find_ffmpeg() or FFMPEG
         today   = datetime.now().strftime('%Y-%m-%d')
-        out_dir = os.path.join(get_download_dir(), today, 'composer')
+        if out_dir_custom:
+            out_dir = out_dir_custom
+        else:
+            out_dir = os.path.join(get_download_dir(), today, 'composer')
         os.makedirs(out_dir, exist_ok=True)
 
         # 获取 start 分辨率
@@ -1895,7 +1899,7 @@ _POS_MAP = {
     'center': 'x=(w-tw)/2:y=(h-th)/2',
 }
 
-def _run_addwatermark(task_id, file_items, text, fontsize, color, position):
+def _run_addwatermark(task_id, file_items, text, fontsize, color, position, out_dir):
     task = addwm_tasks[task_id]
     task['status'] = 'running'
     logs = task['logs']
@@ -1904,21 +1908,40 @@ def _run_addwatermark(task_id, file_items, text, fontsize, color, position):
     def log(msg):
         logs.append(msg)
 
-    font_path = _find_chinese_font()
-    font_opt  = f"fontfile='{font_path}':" if font_path else ""
+    font_path = None
+    for _c in [r'C:\Windows\Fonts\simhei.ttf',
+               r'C:\Windows\Fonts\msyh.ttc',
+               r'C:\Windows\Fonts\simsun.ttc']:
+        if os.path.exists(_c):
+            font_path = _c
+            break
+
     color_val = _COLOR_MAP.get(color, 'white')
     pos_expr  = _POS_MAP.get(position, _POS_MAP['br'])
-    safe_text = text.replace("'", "\\'").replace(":", "\\:").replace("\\", "\\\\")
 
-    vf = (
-        f"drawtext={font_opt}text='{safe_text}':"
-        f"fontsize={fontsize}:"
-        f"fontcolor={color_val}:"
-        f"borderw=2:bordercolor=black@0.6:"
-        f"{pos_expr}"
-    )
+    # 字体路径格式：正斜杠 + 冒号前单反斜杠（与 add_watermark.py 脚本一致）
+    if font_path:
+        font_ffmpeg = font_path.replace('\\', '/').replace('C:', 'C\\:')
+        vf = (
+            f"drawtext=text='{text}':"
+            f"fontfile='{font_ffmpeg}':"
+            f"fontsize={fontsize}:"
+            f"fontcolor={color_val}@0.85:"
+            f"borderw=2:bordercolor=black@0.7:"
+            f"{pos_expr}"
+        )
+    else:
+        vf = (
+            f"drawtext=text='{text}':"
+            f"fontsize={fontsize}:"
+            f"fontcolor={color_val}@0.85:"
+            f"borderw=2:bordercolor=black@0.7:"
+            f"{pos_expr}"
+        )
 
     log(f'水印: {text}  字号: {fontsize}  颜色: {color}  位置: {position}')
+    if out_dir:
+        log(f'输出目录: {out_dir}')
     log(f'共 {len(file_items)} 个视频\n')
 
     for idx, fpath in enumerate(file_items):
@@ -1928,24 +1951,32 @@ def _run_addwatermark(task_id, file_items, text, fontsize, color, position):
         log(f'[{idx+1}/{len(file_items)}] {fname}')
 
         try:
-            # 输出到原文件所在目录
-            src_dir  = os.path.dirname(fpath)
+            dst_dir  = out_dir if out_dir and os.path.isdir(out_dir) else os.path.dirname(fpath)
+            os.makedirs(dst_dir, exist_ok=True)
             base     = os.path.splitext(fname)[0]
-            out_path = os.path.join(src_dir, base + '_水印.mp4')
+            out_path = os.path.join(dst_dir, base + '_水印.mp4')
+            tmp_path = out_path + '.tmp.mp4'  # 先写临时文件，成功后再替换
 
             cmd = [
                 FFMPEG, '-i', fpath,
                 '-vf', vf,
                 '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
                 '-c:a', 'copy',
-                out_path, '-y'
+                tmp_path, '-y'
             ]
             r = subprocess.run(cmd, capture_output=True)
-            if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
+            if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 1000:
+                # 成功后替换目标文件
+                if os.path.exists(out_path):
+                    os.remove(out_path)
+                os.rename(tmp_path, out_path)
                 size_mb = os.path.getsize(out_path) / 1024 / 1024
                 log(f'  ✅ → {out_path} ({size_mb:.1f}MB)')
                 prog['status'] = 'done'
             else:
+                # 失败时清理临时文件，不动原文件
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
                 err = r.stderr.decode(errors='ignore')[-400:]
                 raise RuntimeError(err)
         except Exception as e:
@@ -1956,6 +1987,36 @@ def _run_addwatermark(task_id, file_items, text, fontsize, color, position):
     error = sum(1 for p in progresses if p['status'] == 'error')
     log(f'\n完成：{done} 成功，{error} 失败')
     task['status'] = 'done' if error == 0 else 'error'
+    task['status'] = 'done' if error == 0 else 'error'
+
+
+@app.route('/api/addwatermark/browse', methods=['POST'])
+def addwatermark_browse():
+    """列出指定目录的子目录和视频文件"""
+    data = request.get_json() or {}
+    path = data.get('path', '').strip()
+    # 默认从桌面或用户目录开始
+    if not path:
+        path = os.path.expanduser('~')
+    if not os.path.isdir(path):
+        return jsonify({'error': f'目录不存在: {path}'}), 400
+
+    video_exts = ('.mp4', '.mkv', '.mov', '.avi', '.webm', '.flv')
+    dirs, videos = [], []
+    try:
+        for name in sorted(os.listdir(path)):
+            full = os.path.join(path, name)
+            if os.path.isdir(full) and not name.startswith('.'):
+                dirs.append({'name': name, 'path': full})
+            elif os.path.isfile(full) and name.lower().endswith(video_exts):
+                videos.append({'name': name, 'path': full,
+                                'size': round(os.path.getsize(full) / 1024 / 1024, 1)})
+    except PermissionError:
+        return jsonify({'error': '无权限访问该目录'}), 403
+
+    # 父目录
+    parent = os.path.dirname(path) if path != os.path.dirname(path) else None
+    return jsonify({'current': path, 'parent': parent, 'dirs': dirs, 'videos': videos})
 
 
 @app.route('/api/addwatermark/scan', methods=['POST'])
@@ -1968,7 +2029,7 @@ def addwatermark_scan():
     exts = ('.mp4', '.mkv', '.mov', '.avi', '.webm', '.flv')
     files = []
     for fname in sorted(os.listdir(dir_path)):
-        if fname.lower().endswith(exts) and '_水印' not in fname:
+        if fname.lower().endswith(exts):
             fpath = os.path.join(dir_path, fname)
             if os.path.isfile(fpath):
                 files.append({'path': fpath, 'name': fname})
@@ -2002,6 +2063,7 @@ def addwatermark_start():
     fontsize   = int(data.get('fontsize', 36))
     color      = data.get('color', 'white')
     position   = data.get('position', 'br')
+    out_dir    = data.get('out_dir', '').strip()
 
     if not text:
         return jsonify({'error': '水印文字不能为空'}), 400
@@ -2009,6 +2071,9 @@ def addwatermark_start():
     for fpath in file_items:
         if not os.path.isfile(fpath):
             return jsonify({'error': f'文件不存在: {fpath}'}), 400
+
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
     task_id = str(uuid.uuid4())
     addwm_tasks[task_id] = {
@@ -2019,7 +2084,7 @@ def addwatermark_start():
 
     t = threading.Thread(
         target=_run_addwatermark,
-        args=(task_id, file_items, text, fontsize, color, position),
+        args=(task_id, file_items, text, fontsize, color, position, out_dir),
         daemon=True
     )
     t.start()
@@ -2321,8 +2386,161 @@ def merger_task(task_id):
     return jsonify(task)
 
 
+
+# ════════════════════════════════════════════════════════════
+#  文字视频模块
+# ════════════════════════════════════════════════════════════
+
+tv_tasks    = {}
+TEXTVIDEO_DIR = os.path.join(BASE_DIR, 'video_source')
+
+_VIDEO_EXTS = ('.mp4', '.mov', '.mkv', '.webm')
+_MUSIC_EXTS = ('.mp3', '.wav', '.aac', '.m4a')
+
+
+@app.route('/api/textvideo/assets')
+def textvideo_assets():
+    # 优先用前端传来的目录，其次用默认目录
+    custom_dir = request.args.get('dir', '').strip()
+    scan_dir = custom_dir if custom_dir else TEXTVIDEO_DIR
+
+    if not os.path.isdir(scan_dir):
+        return jsonify({
+            'ok': False,
+            'error': f'目录不存在: {scan_dir}',
+            'videos': [],
+            'music': [],
+            'dir': scan_dir,
+        })
+
+    videos, music = [], []
+    for f in sorted(os.listdir(scan_dir)):
+        fp = os.path.join(scan_dir, f)
+        if not os.path.isfile(fp):
+            continue
+        fl = f.lower()
+        if fl.endswith(_VIDEO_EXTS) and 'sample' not in fl and 'output' not in fl:
+            videos.append({
+                'name':  f,
+                'label': f,
+                'path':  fp,
+            })
+        elif fl.endswith(_MUSIC_EXTS):
+            music.append({
+                'name':  f,
+                'label': f,
+                'path':  fp,
+            })
+    return jsonify({
+        'ok': True,
+        'videos': videos,
+        'music': music,
+        'dir': scan_dir,
+    })
+
+
+def _run_textvideo(task_id, title, body_list, bg_video,
+                   bg_music, music_start, out_dir):
+    task = tv_tasks[task_id]
+    task['status'] = 'running'
+    logs = task['logs']
+
+    def log(msg):
+        logs.append(str(msg))
+
+    try:
+        from gen_text_video import generate_video
+        out_path = generate_video(
+            title=title,
+            body_scenes=body_list,
+            bg_video=bg_video,
+            bg_music=bg_music if bg_music else None,
+            music_start=float(music_start or 0),
+            out_dir=out_dir,
+            log_fn=log,
+            ffmpeg_bin=FFMPEG,
+        )
+        task['status'] = 'done'
+        task['output'] = out_path
+        log(f'✅ 生成完成 → {out_path}')
+    except ImportError:
+        task['status'] = 'error'
+        log('❌ 缺少依赖，请运行: pip install numpy pillow')
+    except Exception as e:
+        import traceback
+        task['status'] = 'error'
+        log(f'❌ {e}')
+        log(traceback.format_exc())
+
+
+@app.route('/api/textvideo/generate', methods=['POST'])
+def textvideo_generate():
+    data = request.get_json() or {}
+
+    title       = data.get('title', '').strip()
+    scripts     = data.get('scripts', [])   # [str, ...] 每条已含逗号
+    bg_video    = data.get('bg_video', '')
+    bg_music    = data.get('bg_music', '')
+    music_start = float(data.get('music_start', 0))
+    out_dir     = data.get('out_dir', '').strip()
+
+    if not title:
+        return jsonify({'error': '请填写标题'}), 400
+    if not scripts:
+        return jsonify({'error': '请至少添加一条文案'}), 400
+    if not bg_video or not os.path.isfile(bg_video):
+        return jsonify({'error': f'背景视频不存在: {bg_video}'}), 400
+
+    # 每条文案按逗号切割 → 每条文案 = 一个画面的行列表
+    from gen_text_video import _split_by_comma
+    body_scenes = []
+    for s in scripts:
+        lines = _split_by_comma(s)
+        if lines:
+            body_scenes.append(lines)
+
+    if not body_scenes:
+        return jsonify({'error': '文案切割后为空，请检查内容'}), 400
+
+    from datetime import datetime
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    if out_dir:
+        # 用户指定了目录，在其下自动加日期子目录
+        out_dir = os.path.join(out_dir, today)
+    else:
+        # 默认输出到下载目录/日期/文字视频
+        out_dir = os.path.join(get_download_dir(), today, '文字视频')
+    os.makedirs(out_dir, exist_ok=True)
+
+    task_id = str(uuid.uuid4())
+    tv_tasks[task_id] = {
+        'status':  'pending',
+        'logs':    [],
+        'output':  '',
+    }
+
+    threading.Thread(
+        target=_run_textvideo,
+        args=(task_id, title, body_scenes, bg_video,
+              bg_music, music_start, out_dir),
+        daemon=True,
+    ).start()
+
+    return jsonify({'task_id': task_id})
+
+
+@app.route('/api/textvideo/task/<task_id>')
+def textvideo_task(task_id):
+    task = tv_tasks.get(task_id)
+    if not task:
+        return jsonify({'error': '任务不存在'}), 404
+    return jsonify(task)
+
+
 if __name__ == '__main__':
     print(f"yt-dlp 路径: {YT_DLP}")
     print(f"下载目录: {get_download_dir()}")
     print("启动服务: http://127.0.0.1:5000")
-    app.run(debug=False, host='127.0.0.1', port=5000)
+    print("📁 监听文件变化，修改代码后自动重启...")
+    app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=True, reloader_type='stat')
