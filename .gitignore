@@ -37,3 +37,7 @@ _creator_uploads/
 textvideo/output.mp4
 textvideo/output_music.mp4
 textvideo/_frames/
+
+# video_source 生成的成品
+video_source/*_最终.mp4
+video_source/*_视频.mp4
