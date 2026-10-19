@@ -2478,7 +2478,8 @@ def textvideo_generate():
     data = request.get_json() or {}
 
     title       = data.get('title', '').strip()
-    scripts     = data.get('scripts', [])   # [str, ...] 每条已含逗号
+    scripts     = data.get('scripts', [])   # 兼容旧格式
+    scenes_raw  = data.get('scenes', [])    # 新格式 [{text, source}, ...]
     bg_video    = data.get('bg_video', '')
     bg_music    = data.get('bg_music', '')
     music_start = float(data.get('music_start', 0))
@@ -2486,21 +2487,28 @@ def textvideo_generate():
 
     if not title:
         return jsonify({'error': '请填写标题'}), 400
-    if not scripts:
+    if not scenes_raw and not scripts:
         return jsonify({'error': '请至少添加一条文案'}), 400
     if not bg_video or not os.path.isfile(bg_video):
         return jsonify({'error': f'背景视频不存在: {bg_video}'}), 400
 
-    # 每条文案按逗号切割 → 每条文案 = 一个画面的行列表
     from gen_text_video import _split_by_comma
     body_scenes = []
-    for s in scripts:
-        lines = _split_by_comma(s)
-        if lines:
-            body_scenes.append(lines)
 
-    if not body_scenes:
-        return jsonify({'error': '文案切割后为空，请检查内容'}), 400
+    if scenes_raw:
+        # 新格式：[{text, source}, ...]
+        for sc in scenes_raw:
+            text   = sc.get('text', '')
+            source = sc.get('source', '')
+            lines  = _split_by_comma(text)
+            if lines:
+                body_scenes.append({"lines": lines, "source": source})
+    else:
+        # 旧格式兼容：[str, ...]
+        for s in scripts:
+            lines = _split_by_comma(s)
+            if lines:
+                body_scenes.append({"lines": lines, "source": ""})
 
     from datetime import datetime
     today = datetime.now().strftime('%Y-%m-%d')

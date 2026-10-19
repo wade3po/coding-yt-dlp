@@ -2358,6 +2358,23 @@
 
             <!-- 右：文案区 -->
             <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px">
+
+              <!-- 快速输入 -->
+              <div class="card">
+                <div class="card-title" style="display:flex;align-items:center;gap:8px">
+                  ⚡ 快速输入
+                  <span style="font-size:11px;color:var(--text3);font-weight:400">粘贴整段文案，自动解析标题/句子/来源</span>
+                </div>
+                <textarea id="tv-quick-input" placeholder="第一行是标题，后面每段是一句。来源写在行末括号里，例：&#10;&#10;古人是怎么说&quot;我想你&quot;的&#10;&#10;山有木兮木有枝，心悦君兮君不知。（《越人歌》）&#10;&#10;晓看天色暮看云，行也思君，坐也思君。（明·唐寅《一剪梅》）"
+                  style="width:100%;min-height:120px;resize:vertical;background:var(--s2);border:1px solid var(--border);
+                    border-radius:var(--r);color:var(--text);padding:8px 10px;font-size:13px;outline:none;
+                    font-family:inherit;line-height:1.7"
+                  onfocus="this.style.borderColor='var(--accent)'"
+                  onblur="this.style.borderColor='var(--border)'"></textarea>
+                <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                  <button class="btn btn-primary btn-sm" onclick="tvParseQuick()">解析并填入 →</button>
+                </div>
+              </div>
               <div class="card">
                 <div class="card-title" style="display:flex;align-items:center;gap:8px">
                   文案内容
@@ -4791,7 +4808,7 @@
       });
     }
 
-    function tvAddEntry() {
+    function tvAddEntry(text='', source='') {
       tvEntryCount++;
       const id = 'tventry_' + tvEntryCount;
       const container = document.getElementById('tv-entries');
@@ -4801,24 +4818,59 @@
       div.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:12px;color:var(--text2);font-weight:600">文案 ${tvEntryCount}</span>
-          <span style="font-size:11px;color:var(--text3)">用逗号分隔多个段落</span>
+          <span style="font-size:11px;color:var(--text3)">用逗号分隔多段</span>
           <span style="flex:1"></span>
           <button onclick="tvRemoveEntry('${id}')"
             style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px 6px;border-radius:4px"
             onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
         </div>
-        <textarea
+        <textarea class="tv-text"
           placeholder="例：春风得意马蹄疾，一日看尽长安花"
           oninput="tvUpdatePreview()"
-          style="width:100%;min-height:64px;resize:vertical;background:var(--s2);border:1px solid var(--border);
+          style="width:100%;min-height:60px;resize:vertical;background:var(--s2);border:1px solid var(--border);
             border-radius:var(--r);color:var(--text);padding:7px 10px;font-size:13px;outline:none;
             font-family:inherit;line-height:1.6"
-          onfocus="this.style.borderColor='var(--accent2)'"
-          onblur="this.style.borderColor='var(--border)'"></textarea>
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='var(--border)'">${text}</textarea>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap">来源（可选）</span>
+          <input type="text" class="tv-source" value="${source}"
+            placeholder="例：《越人歌》或 明·唐寅《一剪梅》"
+            style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);
+              color:var(--text);padding:5px 8px;font-size:12px;outline:none"
+            onfocus="this.style.borderColor='var(--accent)'"
+            onblur="this.style.borderColor='var(--border)'">
+        </div>
       `;
       container.appendChild(div);
       tvCheckReady();
       tvUpdatePreview();
+    }
+
+    function tvParseQuick() {
+      const raw = document.getElementById('tv-quick-input').value.trim();
+      if (!raw) { toast('请先粘贴文案', 'err'); return; }
+
+      // 支持两种格式：每行一句 或 空行分隔
+      const allLines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+      if (allLines.length < 2) { toast('内容太少，无法解析', 'err'); return; }
+
+      // 第一行永远是标题
+      document.getElementById('tv-title').value = allLines[0];
+      document.getElementById('tv-entries').innerHTML = '';
+      tvEntryCount = 0;
+
+      for (const line of allLines.slice(1)) {
+        // 提取行末括号里的来源：（顾少强）（凯鲁亚克《在路上》）
+        const srcMatch = line.match(/[\s　]*[（(]([^）)]+)[）)]\s*$/);
+        const source   = srcMatch ? srcMatch[1].trim() : '';
+        const text     = srcMatch ? line.slice(0, srcMatch.index).trim() : line.trim();
+        if (text) tvAddEntry(text, source);
+      }
+
+      tvCheckReady();
+      tvUpdatePreview();
+      toast(`解析完成：标题 + ${allLines.length - 1} 句`, 'ok');
     }
 
     function tvRemoveEntry(id) {
@@ -4829,15 +4881,15 @@
     }
 
     function tvUpdatePreview() {
-      const textareas = Array.from(
-        document.querySelectorAll('#tv-entries textarea')
-      );
-      const scenes = textareas
-        .map(t => t.value.trim())
-        .filter(Boolean)
-        .map(t => t.split(/[,，]/).map(s =>
+      const entries = Array.from(document.querySelectorAll('#tv-entries > div'));
+      const scenes = entries.map(entry => {
+        const text   = entry.querySelector('.tv-text')?.value.trim() || '';
+        const source = entry.querySelector('.tv-source')?.value.trim() || '';
+        const lines  = text.split(/[,，]/).map(s =>
           s.replace(/[，。！？、；：,.!?;:\s\u3000]+/g, '').trim()
-        ).filter(Boolean));
+        ).filter(Boolean);
+        return { lines, source };
+      }).filter(s => s.lines.length);
 
       const card = document.getElementById('tv-preview-card');
       const list = document.getElementById('tv-preview-list');
@@ -4847,10 +4899,13 @@
       card.style.display = 'block';
       cnt.textContent = `共 ${scenes.length} 个画面`;
 
-      list.innerHTML = scenes.map((lines, i) => `
+      list.innerHTML = scenes.map((sc, i) => `
         <div style="padding:6px 10px;background:var(--s2);border-radius:var(--r);border:1px solid var(--border)">
-          <div style="font-size:11px;color:var(--accent);margin-bottom:4px">画面 ${i+1} · ${lines.length} 行</div>
-          ${lines.map((l, j) => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--accent)">画面 ${i+1} · ${sc.lines.length} 行</span>
+            ${sc.source ? `<span style="font-size:11px;color:var(--text3)">——${sc.source}</span>` : ''}
+          </div>
+          ${sc.lines.map((l, j) => `
             <div style="font-size:13px;padding:1px 0;${j>0?'color:var(--text2)':''}">
               ${j>0?'└ ':''} ${l}
             </div>`).join('')}
@@ -4879,13 +4934,15 @@
       const music  = document.getElementById('tv-music').value;
       const musicStart = parseFloat(document.getElementById('tv-music-start').value) || 0;
 
-      const scripts = Array.from(
-        document.querySelectorAll('#tv-entries textarea')
-      ).map(t => t.value.trim()).filter(Boolean);
+      const entries = Array.from(document.querySelectorAll('#tv-entries > div'));
+      const scenes = entries.map(entry => ({
+        text:   entry.querySelector('.tv-text')?.value.trim()   || '',
+        source: entry.querySelector('.tv-source')?.value.trim() || '',
+      })).filter(e => e.text);
 
-      if (!title)          { toast('请填写标题', 'err'); return; }
-      if (!scripts.length) { toast('请添加文案', 'err'); return; }
-      if (!tvSelectedBg)   { toast('请选择背景视频', 'err'); return; }
+      if (!title)         { toast('请填写标题', 'err'); return; }
+      if (!scenes.length) { toast('请添加文案', 'err'); return; }
+      if (!tvSelectedBg)  { toast('请选择背景视频', 'err'); return; }
 
       if (outdir) localStorage.setItem('tv_outdir', outdir);
 
@@ -4900,7 +4957,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          scripts,
+          scenes,          // [{text, source}, ...]
           bg_video: tvSelectedBg,
           bg_music: music,
           music_start: musicStart,
