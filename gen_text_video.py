@@ -85,7 +85,7 @@ def _strip_punct(text):
     ).strip()
 
 def _split_by_comma(text):
-    parts = re.split(r'[,，]', text)
+    parts = re.split(r'[,，;；]', text)
     return [_strip_punct(p) for p in parts if _strip_punct(p)]
 
 def load_font(size, spec=None):
@@ -168,27 +168,51 @@ def parse_quick_input(raw):
 #  预渲染
 # ══════════════════════════════════════════════════════════════
 
-def build_scene(lines_input, max_size, spec, trk_ratio, source='', log_fn=None):
+def _wrap_title(text, font, trk, max_width):
+    lines, line = [], ''
+    for char in text:
+        if line and _measure(line + char, font, trk) > max_width:
+            if char in '，。！？；：、,.!?;:）)]》」』' and len(line) > 1:
+                lines.append(line[:-1])
+                line = line[-1] + char
+            else:
+                lines.append(line)
+                line = char
+        else:
+            line += char
+    if line:
+        lines.append(line)
+    return lines
+
+
+def build_scene(lines_input, max_size, spec, trk_ratio, source='', log_fn=None,
+                width=W, height=H, is_title=False):
     """渲染一个画面的所有行 mask，以及可选的来源 mask"""
     size = max_size
-    while size > 48:
+    max_width = width - MARGIN * 2
+    while size > (1 if is_title else 48):
         font, _ = load_font(size, spec)
         trk = trk_ratio * size
-        if max(_measure(ln, font, trk) for ln in lines_input) <= MAXW:
+        candidate = [part for line in lines_input for part in _wrap_title(line, font, trk, max_width)] if is_title else lines_input
+        if (max(_measure(ln, font, trk) for ln in candidate) <= max_width
+                and (not is_title or (int(size * LINE_GAP) * len(candidate) <= height - MARGIN * 2
+                                      and (len(candidate) <= 4 or size <= 60)))):
             break
-        size -= 2
+        size = max(1, size - 2)
 
     font, font_path = load_font(size, spec)
     trk    = trk_ratio * size
+    if is_title:
+        lines_input = [part for line in lines_input for part in _wrap_title(line, font, trk, max_width)]
     line_h = int(size * LINE_GAP)
     n      = len(lines_input)
-    y0     = (H - line_h * n) // 2
+    y0     = (height - line_h * n) // 2
 
     result_lines = []
     for i, ln in enumerate(lines_input):
         w  = _measure(ln, font, trk)
-        x0 = max(MARGIN, (W - w) / 2)
-        mask = Image.new("L", (W, H), 0)
+        x0 = max(MARGIN, (width - w) / 2)
+        mask = Image.new("L", (width, height), 0)
         _draw_line(ImageDraw.Draw(mask), x0, y0 + i * line_h, ln, font, trk)
         result_lines.append({
             "mask":   np.asarray(mask, dtype=np.float32) / 255.0,
@@ -208,10 +232,10 @@ def build_scene(lines_input, max_size, spec, trk_ratio, source='', log_fn=None):
         src_text    = f"——{source}"
         src_w       = _measure(src_text, src_font, 0)
         src_h       = SOURCE_SIZE
-        x_src = W - src_w - SOURCE_PAD_R
-        y_src = H - src_h - SOURCE_PAD_B
+        x_src = width - src_w - SOURCE_PAD_R
+        y_src = height - src_h - SOURCE_PAD_B
 
-        src_mask = Image.new("L", (W, H), 0)
+        src_mask = Image.new("L", (width, height), 0)
         ImageDraw.Draw(src_mask).text((x_src, y_src), src_text, font=src_font, fill=255)
         source_data = {
             "mask":   np.asarray(src_mask, dtype=np.float32) / 255.0,
@@ -223,11 +247,10 @@ def build_scene(lines_input, max_size, spec, trk_ratio, source='', log_fn=None):
 
 def seg_alpha(kind, t, n_lines, scene_dur):
     if kind == "title":
-        a_in  = min(1.0, t / TITLE_FADE)
         a_out = 1.0 if t <= TITLE_FADE + TITLE_HOLD else \
                 max(0.0, (TITLE_DUR - t) / TITLE_FADE_OUT)
-        a = a_in * a_out
-        return [(0, a * a * (3 - 2 * a))]
+        a = a_out * a_out * (3 - 2 * a_out)
+        return [(i, a) for i in range(n_lines)]
 
     out_start = scene_dur - SENT_FADE_OUT
     a_out     = 1.0 if t <= out_start else max(0.0, (scene_dur - t) / SENT_FADE_OUT)
@@ -289,13 +312,14 @@ def generate_video(title, body_scenes, bg_video, bg_music, music_start,
     """
     if ffmpeg_bin is None:
         ffmpeg_bin = "ffmpeg"
+    width, height = W, H
 
-    clean_title = _strip_punct(title) or "无标题"
+    clean_title = ' '.join(title.split()) or "无标题"
 
     log_fn(f"标题: {clean_title}")
     log_fn(f"共 {len(body_scenes)} 个画面")
 
-    segs = [("title", [clean_title], TITLE_DUR, TITLE_SIZE, TITLE_TRACK, '')]
+    segs = [("title", _split_by_comma(clean_title) or ["无标题"], TITLE_DUR, TITLE_SIZE, TITLE_TRACK, '')]
     for sc in body_scenes:
         lines  = [_strip_punct(l) for l in sc["lines"] if _strip_punct(l)]
         source = sc.get("source", "")
@@ -306,7 +330,8 @@ def generate_video(title, body_scenes, bg_video, bg_music, music_start,
     log_fn("预渲染字体...")
     metas = []
     for kind, lines, dur, sz, trk, src in segs:
-        metas.append(build_scene(lines, sz, FONT_SPEC, trk, source=src, log_fn=log_fn))
+        metas.append(build_scene(lines, sz, FONT_SPEC, trk, source=src, log_fn=log_fn,
+                                 width=width, height=height, is_title=kind == 'title'))
 
     durations     = [s[2] for s in segs]
     per_seg       = [int(round(d * FPS)) for d in durations]
@@ -325,26 +350,26 @@ def generate_video(title, body_scenes, bg_video, bg_music, music_start,
     dec = subprocess.Popen(
         [ffmpeg_bin, "-v", "error", "-i", bg_video,
          "-t", str(total_seconds),
-         "-vf", f"fps={FPS},scale={W}:{H}:flags=lanczos",
+         "-vf", f"fps={FPS},scale={width}:{height}:flags=lanczos",
          "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
         stdout=subprocess.PIPE,
     )
     enc = subprocess.Popen(
         [ffmpeg_bin, "-y", "-v", "error",
          "-f", "rawvideo", "-pix_fmt", "rgb24",
-         "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+         "-s", f"{width}x{height}", "-r", str(FPS), "-i", "-",
          "-c:v", "libx264", "-crf", "18", "-preset", "slow",
          "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an",
          out_nomusic],
         stdin=subprocess.PIPE,
     )
 
-    frame_bytes = W * H * 3
+    frame_bytes = width * height * 3
     for k in range(total_frames):
         raw = dec.stdout.read(frame_bytes)
         if len(raw) < frame_bytes:
             raw += b"\x00" * (frame_bytes - len(raw))
-        bg_img = Image.frombytes("RGB", (W, H), raw)
+        bg_img = Image.frombytes("RGB", (width, height), raw)
         idx    = int(np.searchsorted(starts, k, side="right") - 1)
         t_     = (k - starts[idx]) / FPS
         frame  = render_frame(bg_img, metas[idx], segs[idx][0], t_, durations[idx])

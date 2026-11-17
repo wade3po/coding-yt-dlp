@@ -2304,7 +2304,7 @@
         <div class="page" id="page-textvideo">
           <div class="page-title">✍️ 文字视频</div>
           <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
-            选择背景视频和音乐，输入标题，添加多条文案（每条按逗号自动切割成段落），生成带文字动效的视频。
+            选择背景视频和音乐，输入标题，添加多条文案（每条按逗号、分号自动切割成段落），生成带文字动效的视频。
           </p>
 
           <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
@@ -2378,7 +2378,7 @@
               <div class="card">
                 <div class="card-title" style="display:flex;align-items:center;gap:8px">
                   文案内容
-                  <span style="font-size:11px;color:var(--text3);font-weight:400">每条用逗号分隔，生成时自动切割成段落、去掉标点</span>
+                  <span style="font-size:11px;color:var(--text3);font-weight:400">每条用逗号或分号分隔，生成时自动切割成段落、去掉标点</span>
                   <span style="flex:1"></span>
                   <button class="btn btn-sm btn-outline" style="font-size:12px" onclick="tvAddEntry()">＋ 添加文案</button>
                 </div>
@@ -4818,7 +4818,7 @@
       div.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:12px;color:var(--text2);font-weight:600">文案 ${tvEntryCount}</span>
-          <span style="font-size:11px;color:var(--text3)">用逗号分隔多段</span>
+          <span style="font-size:11px;color:var(--text3)">用逗号或分号分隔多段</span>
           <span style="flex:1"></span>
           <button onclick="tvRemoveEntry('${id}')"
             style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px 6px;border-radius:4px"
@@ -4885,7 +4885,7 @@
       const scenes = entries.map(entry => {
         const text   = entry.querySelector('.tv-text')?.value.trim() || '';
         const source = entry.querySelector('.tv-source')?.value.trim() || '';
-        const lines  = text.split(/[,，]/).map(s =>
+        const lines  = text.split(/[,，;；]/).map(s =>
           s.replace(/[，。！？、；：,.!?;:\s\u3000]+/g, '').trim()
         ).filter(Boolean);
         return { lines, source };
