@@ -37,7 +37,10 @@ LINE_FADE     = 0.85
 LINE_STAGGER  = 1.05
 LINE_RISE     = 12
 SENT_FADE_OUT = 0.90
-HOLD_AFTER    = 2.00
+HOLD_MIN      = 1.60
+HOLD_MAX      = 5.00
+READ_CHARS_PER_SEC = 6.0
+SCENE_OVERLAP = 0.30
 
 TITLE_FADE     = 1.00
 TITLE_FADE_OUT = 0.75
@@ -109,8 +112,11 @@ def _draw_line(draw, x, y, text, font, trk):
         draw.text((x, y), ch, font=font, fill=255)
         x += font.getlength(ch) + trk
 
-def _scene_dur(n_lines):
-    return (n_lines - 1) * LINE_STAGGER + LINE_FADE + HOLD_AFTER + SENT_FADE_OUT
+def _scene_dur(lines):
+    entrance = (len(lines) - 1) * LINE_STAGGER + LINE_FADE
+    reading = sum(len(line) for line in lines) / READ_CHARS_PER_SEC
+    hold = min(HOLD_MAX, max(HOLD_MIN, reading - entrance))
+    return entrance + hold + SENT_FADE_OUT
 
 # ══════════════════════════════════════════════════════════════
 #  快捷输入解析
@@ -262,6 +268,17 @@ def seg_alpha(kind, t, n_lines, scene_dur):
         res.append((i, a * a * (3 - 2 * a)))
     return res
 
+def _shift_down(mask, offset):
+    """Translate a mask by a fractional number of pixels, without wrapping."""
+    whole = int(offset)
+    fraction = offset - whole
+    shifted = np.zeros_like(mask)
+    if whole < mask.shape[0]:
+        shifted[whole:] = mask[:mask.shape[0] - whole] * (1 - fraction)
+    if fraction and whole + 1 < mask.shape[0]:
+        shifted[whole + 1:] += mask[:mask.shape[0] - whole - 1] * fraction
+    return shifted
+
 def render_frame(bg_img, meta, kind, t, scene_dur):
     """meta = {"lines": [...], "source": {...} or None}"""
     lines_meta = meta["lines"]
@@ -273,10 +290,13 @@ def render_frame(bg_img, meta, kind, t, scene_dur):
     for i, a in alphas:
         if i >= n or a < 0.002: continue
         info = lines_meta[i]
-        rise = int(LINE_RISE * (1 - a))
-        ta   = np.roll(info["mask"],   rise, axis=0)
-        sh   = np.roll(info["shadow"], rise, axis=0)
-        if rise > 0: ta[:rise] = 0; sh[:rise] = 0
+        if kind == "title":
+            rise = int(LINE_RISE * (1 - a))
+        else:
+            progress = min(1.0, max(0.0, (t - i * LINE_STAGGER) / LINE_FADE))
+            rise = LINE_RISE * (1 - progress * progress * (3 - 2 * progress))
+        ta = _shift_down(info["mask"], rise) if rise else info["mask"]
+        sh = _shift_down(info["shadow"], rise) if rise else info["shadow"]
         if arr is None:
             arr = np.asarray(bg_img).astype(np.float32)
         arr -= (sh * SHADOW_STRENGTH * a)[..., None] * arr
@@ -291,10 +311,10 @@ def render_frame(bg_img, meta, kind, t, scene_dur):
             if arr is None:
                 arr = np.asarray(bg_img).astype(np.float32)
             a_eff = a_src * SOURCE_OPACITY
-            rise  = int(LINE_RISE * (1 - a_src))
-            ta    = np.roll(src_data["mask"],   rise, axis=0)
-            sh    = np.roll(src_data["shadow"], rise, axis=0)
-            if rise > 0: ta[:rise] = 0; sh[:rise] = 0
+            progress = min(1.0, max(0.0, (t - (n - 1) * LINE_STAGGER) / LINE_FADE))
+            rise = LINE_RISE * (1 - progress * progress * (3 - 2 * progress))
+            ta = _shift_down(src_data["mask"], rise) if rise else src_data["mask"]
+            sh = _shift_down(src_data["shadow"], rise) if rise else src_data["shadow"]
             arr -= (sh * SHADOW_STRENGTH * a_eff)[..., None] * arr
             arr  = arr * (1 - (ta * a_eff)[..., None]) + \
                    np.array(TEXT_RGB, np.float32) * (ta * a_eff)[..., None]
@@ -324,7 +344,7 @@ def generate_video(title, body_scenes, bg_video, bg_music, music_start,
         lines  = [_strip_punct(l) for l in sc["lines"] if _strip_punct(l)]
         source = sc.get("source", "")
         if not lines: continue
-        dur = _scene_dur(len(lines))
+        dur = _scene_dur(lines)
         segs.append(("body", lines, dur, BODY_SIZE, BODY_TRACK, source))
 
     log_fn("预渲染字体...")
@@ -333,11 +353,15 @@ def generate_video(title, body_scenes, bg_video, bg_music, music_start,
         metas.append(build_scene(lines, sz, FONT_SPEC, trk, source=src, log_fn=log_fn,
                                  width=width, height=height, is_title=kind == 'title'))
 
-    durations     = [s[2] for s in segs]
-    per_seg       = [int(round(d * FPS)) for d in durations]
-    total_frames  = sum(per_seg)
+    per_seg       = [int(round(s[2] * FPS)) for s in segs]
+    durations     = [frames / FPS for frames in per_seg]
+    overlap_frames = int(round(SCENE_OVERLAP * FPS))
+    starts = [0]
+    for i in range(1, len(segs)):
+        overlap = overlap_frames if segs[i - 1][0] == segs[i][0] == "body" else 0
+        starts.append(starts[-1] + per_seg[i - 1] - overlap)
+    total_frames  = starts[-1] + per_seg[-1]
     total_seconds = total_frames / FPS
-    starts        = np.cumsum([0] + per_seg)
 
     log_fn(f"总时长: {total_seconds:.2f}s ({total_frames} 帧)")
 
@@ -372,7 +396,13 @@ def generate_video(title, body_scenes, bg_video, bg_music, music_start,
         bg_img = Image.frombytes("RGB", (width, height), raw)
         idx    = int(np.searchsorted(starts, k, side="right") - 1)
         t_     = (k - starts[idx]) / FPS
-        frame  = render_frame(bg_img, metas[idx], segs[idx][0], t_, durations[idx])
+        if idx > 0 and k < starts[idx - 1] + per_seg[idx - 1]:
+            # Draw both scenes during the short transition, over the same background.
+            prev_t = (k - starts[idx - 1]) / FPS
+            frame = render_frame(bg_img, metas[idx - 1], segs[idx - 1][0], prev_t, durations[idx - 1])
+            frame = render_frame(frame, metas[idx], segs[idx][0], t_, durations[idx])
+        else:
+            frame = render_frame(bg_img, metas[idx], segs[idx][0], t_, durations[idx])
         enc.stdin.write(frame.tobytes())
         if k % 90 == 0:
             log_fn(f"渲染 {k}/{total_frames} ({k/FPS:.1f}s)")
